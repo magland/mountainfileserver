@@ -8,7 +8,9 @@
 
 ## Installing using docker
 
-> sudo apt-get install docker.io
+Install docker (on ubuntu this would be apt-get install docker.io)
+
+Then build the image from the Dockerfile
 
 > sudo docker build -t mfs .
 
@@ -24,6 +26,16 @@ In that case you will need to stop the container via
 
 > sudo docker kill [name_of_container]
 
+## Testing the installation
+
+Open a web browser and point it to
+
+> http://localhost:8080/hello_world.txt
+
+> http://localhost:8080/hello_world.txt?a=stat
+
+You can replace localhost by the ip of your server if you are on a different machine.
+
 ## Configuring the listen port
 
 > cp config/mountainfileserver.ini.example config/mountainfileserver.ini
@@ -31,4 +43,7 @@ In that case you will need to stop the container via
 Then edit this .ini file appropriately.
 
 Rebuild the image, and run the container
+
+
+
 
