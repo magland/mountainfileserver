@@ -39,7 +39,6 @@ WORKDIR dev/mountainfileserver
 # Add the source files
 ADD src src
 ADD sumit sumit
-ADD config config
 ADD test_data test_data
 USER root
 RUN chown -R magland:magland *
