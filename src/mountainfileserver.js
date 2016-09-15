@@ -193,7 +193,7 @@ http.createServer(function (REQ, RESP) {
 
 	function absolute_data_directory() {
 		var ret=config.data_directory;
-		if (ret.indexOf('/')) return ret;
+		if (ret.indexOf('/')===0) return ret;
 		return __dirname+'/../'+ret;
 	}
 	
