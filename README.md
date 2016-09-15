@@ -1,5 +1,11 @@
 # mountainfileserver
 
+## Downloading
+
+> git clone https://github.com/magland/mountainfileserver.git
+
+> cd mountainfileserver
+
 ## Installing using docker
 
 > sudo apt-get install docker.io
