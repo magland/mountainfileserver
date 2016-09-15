@@ -13,7 +13,7 @@ var ini=require('ini');
 
 var config=ini.parse(fs.readFileSync(__dirname+'/mountainfileserver.ini.default','utf8'));
 try {
-	config_user=ini.parse(fs.readFileSync(__dirname+'/mountainfileserver.ini','utf8'));
+	config_user=ini.parse(fs.readFileSync(__dirname+'/../config/mountainfileserver.ini','utf8'));
 	config=extend(true,config,config_user);
 }
 catch(err) {
@@ -21,15 +21,19 @@ catch(err) {
 
 var subservers=[];
 try {
-	var obj=JSON.parse(fs.readFileSync(__dirname+'/subservers.json','utf8'));
+	var obj=JSON.parse(fs.readFileSync(__dirname+'/../config/subservers.json','utf8'));
 	subservers=obj.subservers||[];
 }
 catch(err) {
-	if (fs.existsSync(__dirname+'/subservers.json')) {
+	if (fs.existsSync(__dirname+'/../subservers.json')) {
 		console.log('Error parsing subservers.json');
 		return;
 	}
 }
+
+process.on('SIGINT', function() {
+    process.exit();
+});
 
 console.log('CONFIG:');
 console.log(config);
@@ -81,7 +85,7 @@ http.createServer(function (REQ, RESP) {
 		}
 
 		if (method=="download") {
-			var fname=config.data_directory+"/"+path;
+			var fname=absolute_data_directory()+"/"+path;
 			if (!require('fs').existsSync(fname)) {
 				send_json_response({success:false,error:"File does not exist: "+path});		
 				return;	
@@ -89,12 +93,12 @@ http.createServer(function (REQ, RESP) {
 			serve_file(fname,RESP);
 		}
 		else if (method=="stat") {
-			var fname=config.data_directory+"/"+path;
+			var fname=absolute_data_directory()+"/"+path;
 			if (!require('fs').existsSync(fname)) {
 				send_json_response({success:false,error:"File does not exist: "+path});		
 				return;	
 			}
-			run_process_and_read_stdout(__dirname+'/bin/sumit',['stat',fname],function(txt) {
+			run_process_and_read_stdout(__dirname+'/../bin/sumit',['stat',fname],function(txt) {
 				try {
 					var obj=JSON.parse(txt);
 					send_json_response(obj);
@@ -109,13 +113,13 @@ http.createServer(function (REQ, RESP) {
 				send_json_response({success:false,error:"Invalid query."});	
 				return;
 			}
-			run_process_and_read_stdout(__dirname+'/bin/sumit',['find',config.data_directory,'--checksum='+query.checksum,'--size='+query.size],function(txt) {
+			run_process_and_read_stdout(__dirname+'/../bin/sumit',['find',absolute_data_directory(),'--checksum='+query.checksum,'--size='+query.size],function(txt) {
 				txt=txt.trim();
 				if (!txt) {
 					find_in_subserver({checksum:query.checksum,size:query.size});
 					return;
 				}
-				if (txt) txt=txt.slice(config.data_directory.length+1);
+				if (txt) txt=txt.slice(absolute_data_directory().length+1);
 				send_as_text_or_link(txt);
 			});	
 		}
@@ -187,6 +191,11 @@ http.createServer(function (REQ, RESP) {
 		});
 	}
 
+	function absolute_data_directory() {
+		var ret=config.data_directory;
+		if (ret.indexOf('/')) return ret;
+		return __dirname+'/../'+ret;
+	}
 	
 	function send_json_response(obj) {
 		RESP.writeHead(200, {"Access-Control-Allow-Origin":"*", "Content-Type":"application/json"});
