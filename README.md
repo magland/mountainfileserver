@@ -17,7 +17,9 @@ Then build the image from the Dockerfile
 (It will take some time to build)
 
 Then you can run the server in the container using:
-> sudo docker run --net="host" -it mfs
+> sudo docker run --net="host" -v $PWD/config:/base/config -v $PWD/data:/base/data -it mfs
+
+If instead you want to explore around the container you can add /bin/bash to the end of this command.
 
 Change "-it" to "-t" if you don't want it to stop when the terminal closes.
 In that case you will need to stop the container via
@@ -44,6 +46,13 @@ Then edit this .ini file appropriately.
 
 Rebuild the image, and run the container
 
+## Configuring the data directory
+
+To point the file server to a different base data directory, simply replace
+"$PWD/data" in your run command by the absolute path of your data directory.
+For example
+
+> -v /path/to/data:/base/data
 
 
 
