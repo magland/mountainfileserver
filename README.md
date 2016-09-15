@@ -29,8 +29,10 @@ In that case you will need to stop the container via
 ## Testing the installation
 
 Open a web browser and point it to
-http://localhost:8080/hello_world.txt
-http://localhost:8080/hello_world.txt?a=stat
+
+> http://localhost:8080/hello_world.txt
+
+> http://localhost:8080/hello_world.txt?a=stat
 
 You can replace localhost by the ip of your server if you are on a different machine.
 
