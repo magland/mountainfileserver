@@ -1,6 +1,5 @@
 ############################################################
-# Run a mountainfileserver file server
-# Run this container using --net="host"
+# prv
 ############################################################
 
 # Set the base image to Ubuntu
@@ -21,33 +20,31 @@ RUN apt-get install -y nodejs npm
 RUN npm install ini extend
 
 # Make the user
-RUN mkdir /home/magland
-RUN groupadd -r magland -g 433 && \
-useradd -u 431 -r -g magland -d /home/magland -s /sbin/nologin -c "Docker image user" magland && \
-chown -R magland:magland /home/magland
+RUN mkdir /home/prvuser
+RUN groupadd -r prvuser -g 433 && \
+useradd -u 431 -r -g prvuser -d /home/prvuser -s /sbin/nologin -c "Docker image user" prvuser && \
+chown -R prvuser:prvuser /home/prvuser
 RUN apt-get install nano
 
-USER magland
-WORKDIR /home/magland
-RUN echo "------------------------------------ $PWD"
-RUN whoami
+USER prvuser
+WORKDIR /home/prvuser
 
-# Make the development directory
-RUN mkdir -p dev/mountainfileserver
-WORKDIR dev/mountainfileserver
+# Make the source directory
+RUN mkdir -p prv
+WORKDIR prv
 
 # Add the source files
 ADD src src
-ADD sumit sumit
+ADD prvfileserver prvfileserver
 USER root
-RUN chown -R magland:magland *
+RUN chown -R prvuser:prvuser *
 RUN ln -s $PWD /base
-USER magland
+USER prvuser
 
-# Compile sumit
-WORKDIR sumit
+# Compile prv
+WORKDIR src
 RUN qmake
 RUN make -j 4
 WORKDIR ..
 
-CMD ["nodejs","src/mountainfileserver.js"]
+#CMD ["nodejs","src/mountainfileserver.js"]
