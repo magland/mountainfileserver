@@ -312,7 +312,7 @@ QString find_file(QString directory,QString checksum,QString checksum1000_option
 
 QJsonObject get_config() {
     QString fname1=qApp->applicationDirPath()+"/../prv.json.default";
-    QString fname2=qApp->applicationDirPath()+"/../prv.json";
+    QString fname2=qApp->applicationDirPath()+"/../config/prv.json";
     QJsonObject obj1=QJsonDocument::fromJson(read_text_file(fname1).toUtf8()).object();
     QJsonObject obj2;
     if (QFile::exists(fname2)) {

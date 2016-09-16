@@ -1,4 +1,4 @@
-console.log('Running mountainfileserver...');
+console.log('Running prvfileserver...');
 
 //// requires
 var	url=require('url');
@@ -8,28 +8,15 @@ var fs=require('fs');
 //use > npm install extend
 var extend=require('extend');
 
-//use > npm install ini
-var ini=require('ini');
-
-var config=ini.parse(fs.readFileSync(__dirname+'/mountainfileserver.ini.default','utf8'));
+var config=JSON.parse(fs.readFileSync(__dirname+'/../prvfileserver.json.default','utf8'));
 try {
-	config_user=ini.parse(fs.readFileSync(__dirname+'/../config/mountainfileserver.ini','utf8'));
+	config_user=ini.parse(fs.readFileSync(__dirname+'/../config/prvfileserver.json','utf8'));
 	config=extend(true,config,config_user);
 }
 catch(err) {
 }
 
-var subservers=[];
-try {
-	var obj=JSON.parse(fs.readFileSync(__dirname+'/../config/subservers.json','utf8'));
-	subservers=obj.subservers||[];
-}
-catch(err) {
-	if (fs.existsSync(__dirname+'/../subservers.json')) {
-		console.log('Error parsing subservers.json');
-		return;
-	}
-}
+var subservers=config.subservers||[];
 
 process.on('SIGINT', function() {
     process.exit();

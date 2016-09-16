@@ -47,4 +47,6 @@ RUN qmake
 RUN make -j 4
 WORKDIR ..
 
+ENV path /home/prvuser/prv/bin:$PATH
+
 #CMD ["nodejs","src/mountainfileserver.js"]

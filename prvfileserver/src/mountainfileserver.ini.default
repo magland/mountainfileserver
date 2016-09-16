@@ -1,3 +1,0 @@
-listen_port=8080
-data_directory=data
-max_recursion=5
