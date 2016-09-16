@@ -10,28 +10,39 @@
 #include <QThread>
 #include <QDir>
 #include <QJsonArray>
+#include <QSettings>
 
 #define PRV_VERSION 0.1
 
 void usage() {
     printf("prv sha1 [file_name]\n");
-    printf("prv create [file_name|folder_name] [dst_name.prv (optional)]\n");
+    printf("prv create [src_file_name|folder_name] [dst_name.prv (optional)] [--create-temporary-files]\n");
+    printf("prv locate [file_name.prv]\n");
+    printf("prv recover [src_file_name.prv] [dst_file_name|folder_name (optional)] \n");
 }
 
-int main_sha1(QString path);
-int main_create_file_prv(QString src_path,QString dst_path);
-int main_create_folder_prv(QString src_path,QString dst_path);
+int main_sha1(QString path,const QVariantMap &params);
+int main_create_file_prv(QString src_path,QString dst_path,const QVariantMap &params);
+int main_create_folder_prv(QString src_path,QString dst_path,const QVariantMap &params);
+int main_locate_file(const QJsonObject &obj,const QVariantMap &params);
+int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
+int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
+
+QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional);
 
 bool should_store_content(QString file_path);
 bool should_store_binary_content(QString file_path);
+QJsonObject get_config();
+QString get_tmp_path();
 
 void print(QString str);
 void println(QString str);
 bool is_file(QString path);
 bool is_folder(QString path);
-bool write_text_file(const QString& fname, const QString& txt, QTextCodec* codec=0);
 QString read_text_file(const QString& fname, QTextCodec* codec=0);
+bool write_text_file(const QString& fname, const QString& txt, QTextCodec* codec=0);
 QByteArray read_binary_file(const QString& fname);
+bool write_binary_file(const QString& fname,const QByteArray &data);
 
 int main(int argc,char *argv[]) {
     QCoreApplication app(argc,argv);
@@ -51,7 +62,7 @@ int main(int argc,char *argv[]) {
             qWarning() << "No such file: "+path;
             return -1;
         }
-        return main_sha1(path);
+        return main_sha1(path,CLP.named_parameters);
     }
     else if (arg1=="create") {
         QString src_path=arg2;
@@ -71,14 +82,62 @@ int main(int argc,char *argv[]) {
             return -1;
         }
         if (is_file(src_path)) {
-            return main_create_file_prv(src_path,dst_path);
+            return main_create_file_prv(src_path,dst_path,CLP.named_parameters);
         }
         else if (is_folder(src_path)) {
-            return main_create_folder_prv(src_path,dst_path);
+            return main_create_folder_prv(src_path,dst_path,CLP.named_parameters);
         }
         else {
             qWarning() << "not sure why file is not a file nor a folder.";
             return -1;
+        }
+    }
+    else if (arg1=="locate") {
+        QString src_path=arg2;
+        if (src_path.isEmpty()) {
+            return -1;
+        }
+        if (!QFile::exists(src_path)) {
+            qWarning() << "No such file: "+src_path;
+            return -1;
+        }
+        if (!src_path.endsWith(".prv")) {
+            println("prv file must have .prv extension");
+            return -1;
+        }
+        QJsonObject obj=QJsonDocument::fromJson(read_text_file(src_path).toUtf8()).object();
+        if (obj.contains("original_checksum")) {
+            return main_locate_file(obj,CLP.named_parameters);
+        }
+        else {
+            printf("Only files can be located.\n");
+            return -1;
+        }
+    }
+    else if (arg1=="recover") {
+        QString src_path=arg2;
+        QString dst_path=arg3;
+        if (src_path.isEmpty()) {
+            return -1;
+        }
+        if (!QFile::exists(src_path)) {
+            qWarning() << "No such file: "+src_path;
+            return -1;
+        }
+        if (!src_path.endsWith(".prv")) {
+            println("prv file must have .prv extension");
+            return -1;
+        }
+        if (dst_path.isEmpty()) {
+            QString f0=QFileInfo(src_path).fileName();
+            dst_path=f0.mid(0,f0.count()-4); //remove .prv extension
+        }
+        QJsonObject obj=QJsonDocument::fromJson(read_text_file(src_path).toUtf8()).object();
+        if (obj.contains("original_checksum")) {
+            return main_recover_file_prv(obj,dst_path,CLP.named_parameters);
+        }
+        else {
+            return main_recover_folder_prv(obj,dst_path,CLP.named_parameters);
         }
     }
     else {
@@ -97,14 +156,15 @@ void println(QString str) {
     printf("%s\n",str.toUtf8().data());
 }
 
-int main_sha1(QString path) {
+int main_sha1(QString path,const QVariantMap &params) {
+    Q_UNUSED(params)
     QString checksum=sumit(path);
     if (checksum.isEmpty()) return -1;
     println(checksum);
     return 0;
 }
 
-QJsonObject make_file_prv_object(QString src_path) {
+QJsonObject make_file_prv_object(QString src_path,const QVariantMap &params) {
     QJsonObject obj;
     obj["prv_version"]=PRV_VERSION;
     obj["original_path"]=src_path;
@@ -112,10 +172,19 @@ QJsonObject make_file_prv_object(QString src_path) {
     obj["original_checksum"]=sumit(src_path);
     obj["original_checksum_1000"]=sumit(src_path,1000);
     obj["original_size"]=QFileInfo(src_path).size();
+
+    if (params.contains("create-temporary-files")) {
+        QString tmp=get_tmp_path();
+        if (!tmp.isEmpty()) {
+            QString checksum=obj["original_checksum"].toString();
+            QFile::copy(src_path,tmp+"/"+checksum+".prvdat");
+        }
+    }
+
     return obj;
 }
 
-QJsonObject make_folder_prv_object(QString src_path) {
+QJsonObject make_folder_prv_object(QString src_path,const QVariantMap &params) {
     QJsonObject obj;
     obj["prv_version"]=PRV_VERSION;
     obj["original_path"]=src_path;
@@ -127,8 +196,11 @@ QJsonObject make_folder_prv_object(QString src_path) {
         obj0["file_name"]=file;
         if (should_store_content(src_path+"/"+file)) {
             if (file.endsWith(".prv")) {
+                QString tmp=obj0["file_name"].toString();
+                obj0["file_name"]=tmp.mid(0,tmp.count()-4); //remove the .prv extension
                 println("storing prv::::: "+src_path+"/"+file);
                 obj0["prv"]=QJsonDocument::fromJson(read_text_file(src_path+"/"+file).toUtf8()).object();
+                obj0["originally_a_prv_file"]=true;
             }
             else if (should_store_binary_content(src_path+"/"+file)) {
                 println("storing binary:: "+src_path+"/"+file);
@@ -142,7 +214,7 @@ QJsonObject make_folder_prv_object(QString src_path) {
         }
         else {
             println("making file prv: "+src_path+"/"+file);
-            obj0["prv"]=make_file_prv_object(src_path+"/"+file);
+            obj0["prv"]=make_file_prv_object(src_path+"/"+file,params);
         }
         files_array.push_back(obj0);
     }
@@ -151,9 +223,8 @@ QJsonObject make_folder_prv_object(QString src_path) {
     QJsonArray folders_array;
     QStringList folder_list=QDir(src_path).entryList(QStringList("*"),QDir::Dirs|QDir::NoDotAndDotDot,QDir::Name);
     foreach (QString folder,folder_list) {
-        QJsonObject obj0;
+        QJsonObject obj0=make_folder_prv_object(src_path+"/"+folder,params);
         obj0["folder_name"]=folder;
-        obj0["contents"]=make_folder_prv_object(src_path+"/"+folder);
         folders_array.push_back(obj0);
     }
     obj["folders"]=folders_array;
@@ -161,9 +232,9 @@ QJsonObject make_folder_prv_object(QString src_path) {
     return obj;
 }
 
-int main_create_file_prv(QString src_path,QString dst_path) {
+int main_create_file_prv(QString src_path,QString dst_path,const QVariantMap &params) {
     println("making file prv: "+src_path);
-    QJsonObject obj=make_file_prv_object(src_path);
+    QJsonObject obj=make_file_prv_object(src_path,params);
 
     if (obj["original_checksum"].toString().isEmpty()) {
         printf("Error: checksum is empty\n");
@@ -180,8 +251,8 @@ int main_create_file_prv(QString src_path,QString dst_path) {
     }
 }
 
-int main_create_folder_prv(QString src_path,QString dst_path) {
-    QJsonObject obj=make_folder_prv_object(src_path);
+int main_create_folder_prv(QString src_path,QString dst_path,const QVariantMap &params) {
+    QJsonObject obj=make_folder_prv_object(src_path,params);
 
     QString json=QJsonDocument(obj).toJson();
     if (write_text_file(dst_path,json)) {
@@ -193,6 +264,184 @@ int main_create_folder_prv(QString src_path,QString dst_path) {
     }
 }
 
+int main_locate_file(const QJsonObject &obj,const QVariantMap &params) {
+    Q_UNUSED(params)
+    QString checksum=obj["original_checksum"].toString();
+    QString checksum1000=obj["original_checksum_1000"].toString();
+    long original_size=obj["original_size"].toVariant().toLongLong();
+    QString local_fname=find_local_file(original_size,checksum,checksum1000);
+    if (local_fname.isEmpty()) {
+        println("Unable to find local file:size="+QString::number(original_size)+" checksum="+checksum+" checksum1000="+checksum1000);
+        return -1;
+    }
+    println(local_fname);
+    return 0;
+}
+
+QString find_file(QString directory,QString checksum,QString checksum1000_optional,long size,bool recursive) {
+    QStringList files=QDir(directory).entryList(QStringList("*"),QDir::Files);
+    foreach (QString file,files) {
+        QString path=directory+"/"+file;
+        if (QFileInfo(path).size()==size) {
+            if (!checksum1000_optional.isEmpty()) {
+                QString checksum0=sumit(path,1000);
+                if (checksum0==checksum1000_optional) {
+                    QString checksum1=sumit(path);
+                    if (checksum1==checksum) {
+                        return path;
+                    }
+                }
+            }
+            {
+                QString checksum1=sumit(path);
+                if (checksum1==checksum) {
+                    return path;
+                }
+            }
+        }
+    }
+    if (recursive) {
+        QStringList dirs=QDir(directory).entryList(QStringList("*"),QDir::Dirs|QDir::NoDotAndDotDot);
+        foreach (QString dir,dirs) {
+            QString path=find_file(directory+"/"+dir,checksum,checksum1000_optional,size,recursive);
+            if (!path.isEmpty()) return path;
+        }
+    }
+    return "";
+}
+
+QJsonObject get_config() {
+    QString fname1=qApp->applicationDirPath()+"/../prv.json.default";
+    QString fname2=qApp->applicationDirPath()+"/../prv.json";
+    QJsonObject obj1=QJsonDocument::fromJson(read_text_file(fname1).toUtf8()).object();
+    QJsonObject obj2;
+    if (QFile::exists(fname2)) {
+        obj2=QJsonDocument::fromJson(read_text_file(fname2).toUtf8()).object();
+    }
+    QStringList keys2=obj2.keys();
+    foreach (QString key,keys2) {
+        obj1[key]=obj2[key];
+    }
+    return obj1;
+}
+
+QString get_tmp_path() {
+    QJsonObject config=get_config();
+    QString temporary_path=config["temporary_path"].toString();
+    if (temporary_path.isEmpty()) return "";
+    QDir(temporary_path).mkdir("prv");
+    return temporary_path+"/prv";
+}
+
+QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional) {
+    QJsonObject config=get_config();
+    QJsonArray local_search_paths=config.value("local_search_paths").toArray();
+    QString temporary_path=config.value("temporary_path").toString();
+    if (!temporary_path.isEmpty()) {
+        local_search_paths << temporary_path;
+    }
+    for (int i=0; i<local_search_paths.count(); i++) {
+        QString search_path=local_search_paths[i].toString();
+        QString fname=find_file(search_path,checksum,checksum1000_optional,size,true);
+        if (!fname.isEmpty()) return fname;
+    }
+    return "";
+}
+
+int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params) {
+    Q_UNUSED(params)
+    QString checksum=obj["original_checksum"].toString();
+    QString checksum1000=obj["original_checksum_1000"].toString();
+    long original_size=obj["original_size"].toVariant().toLongLong();
+    QString local_fname=find_local_file(original_size,checksum,checksum1000);
+    if (local_fname.isEmpty()) {
+        println("Unable to find local file:size="+QString::number(original_size)+" checksum="+checksum+" checksum1000="+checksum1000);
+        return -1;
+    }
+    if (QFile::exists(dst_path)) {
+        if (!QFile::remove(dst_path)) {
+            qWarning() << "Unable to remove file or folder: "+dst_path;
+            return -1;
+        }
+    }
+    if (!QFile::copy(local_fname,dst_path)) {
+        qWarning() << "Unable to copy file: "+local_fname+" "+dst_path;
+        return -1;
+    }
+    return 0;
+}
+
+int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params) {
+    if (QFile::exists(dst_path)) {
+        println("Cannot write to directory that already exists: "+dst_path);
+        return -1;
+    }
+    QString abs_dst_path=QDir::current().absoluteFilePath(dst_path);
+    QString parent_path=QFileInfo(abs_dst_path).path();
+    QString name=QFileInfo(abs_dst_path).fileName();
+    if (!QDir(parent_path).mkdir(name)) {
+        println("Unable to create directory. Aborting. "+abs_dst_path);
+        return -1;
+    }
+
+    QJsonArray files=obj["files"].toArray();
+    for (int i=0; i<files.count(); i++) {
+        QJsonObject obj0=files[i].toObject();
+        QString fname0=obj0["file_name"].toString();
+        if (fname0.isEmpty()) {
+            println("File name is empty. Aborting. "+fname0);
+            return -1;
+        }
+        println("Recovering "+abs_dst_path+"/"+fname0);
+        if (obj0.contains("content")) {
+            if (!write_text_file(abs_dst_path+"/"+fname0,obj0["content"].toString())) {
+                println("Unable to write file. Aborting. "+fname0);
+                return -1;
+            }
+        }
+        else if (obj0.contains("content_base64")) {
+            QByteArray data0=QByteArray::fromBase64(obj0["content_base64"].toString().toUtf8());
+            if (!write_binary_file(abs_dst_path+"/"+fname0,data0)) {
+                println("Unable to write file. Aborting. "+fname0);
+                return -1;
+            }
+        }
+        else if (obj0.contains("prv")) {
+            bool to_recover=false;
+            if (params.contains("recover-all-prv-files"))
+                to_recover=true;
+            if (!obj0["originally_a_prv_file"].toBool())
+                to_recover=true;
+            if (to_recover) {
+                println("**** RECOVERING .prv file: "+abs_dst_path+"/"+fname0);
+                QJsonObject obj1=obj0["prv"].toObject();
+                int ret=main_recover_file_prv(obj1,abs_dst_path+"/"+fname0,params);
+                if (ret<0) return ret;
+            }
+            else {
+                QString json=QJsonDocument(obj0["prv"].toObject()).toJson();
+                if (!write_text_file(abs_dst_path+"/"+fname0+".prv",json)) {
+                    println("Unable to write file. Aborting. "+fname0);
+                    return -1;
+                }
+            }
+        }
+    }
+
+    QJsonArray folders=obj["folders"].toArray();
+    for (int i=0; i<folders.count(); i++) {
+        QJsonObject obj0=folders[i].toObject();
+        QString fname0=obj0["folder_name"].toString();
+        if (fname0.isEmpty()) {
+            println("Folder name is empty. Aborting. "+fname0);
+            return -1;
+        }
+        int ret=main_recover_folder_prv(obj0,dst_path+"/"+fname0,params);
+        if (ret<0) return ret;
+    }
+    return 0;
+}
+
 bool should_store_content(QString file_path) {
     if ((file_path.endsWith(".mda"))||(file_path.endsWith(".dat"))) return false;
     return true;
@@ -200,7 +449,7 @@ bool should_store_content(QString file_path) {
 
 bool should_store_binary_content(QString file_path) {
     QStringList text_file_extensions;
-    text_file_extensions << "txt" << "ini" << "cfg" << "json" << "h" << "cpp" << "pro" << "sh" << "js" << "m" << "py";
+    text_file_extensions << "txt" << "csv" << "ini" << "cfg" << "json" << "h" << "cpp" << "pro" << "sh" << "js" << "m" << "py";
     foreach (QString ext,text_file_extensions)
         if (file_path.endsWith("."+ext)) return false;
     return true;
@@ -257,11 +506,24 @@ QString read_text_file(const QString& fname, QTextCodec* codec)
 
 QByteArray read_binary_file(const QString& fname) {
     QFile file(fname);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "Unable to open file for reading: "+fname;
         return QByteArray();
     }
     QByteArray ret=file.readAll();
+    file.close();
+    return ret;
+}
+
+bool write_binary_file(const QString& fname,const QByteArray &data) {
+    QFile file(fname);
+    if (!file.open(QIODevice::WriteOnly)) {
+        qWarning() << "Unable to open file for writing: "+fname;
+        return false;
+    }
+    bool ret=true;
+    if (file.write(data)!=data.count())
+        ret=false;
     file.close();
     return ret;
 }
