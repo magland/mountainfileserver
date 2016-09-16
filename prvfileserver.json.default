@@ -1,7 +1,0 @@
-{
-	"listen_port":"8080",
-	"data_directory":"data",
-	"subservers":[
-		{"host":"http://localhost","port":8081}
-	]
-}

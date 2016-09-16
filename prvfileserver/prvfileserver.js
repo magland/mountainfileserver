@@ -8,9 +8,9 @@ var fs=require('fs');
 //use > npm install extend
 var extend=require('extend');
 
-var config=JSON.parse(fs.readFileSync(__dirname+'/../prvfileserver.json.default','utf8'));
+var config=JSON.parse(fs.readFileSync(__dirname+'/../prv.json.default','utf8'));
 try {
-	config_user=ini.parse(fs.readFileSync(__dirname+'/../config/prvfileserver.json','utf8'));
+	config_user=ini.parse(fs.readFileSync(__dirname+'/../config/prv.json','utf8'));
 	config=extend(true,config,config_user);
 }
 catch(err) {
@@ -85,13 +85,13 @@ http.createServer(function (REQ, RESP) {
 				send_json_response({success:false,error:"File does not exist: "+path});		
 				return;	
 			}
-			run_process_and_read_stdout(__dirname+'/../bin/sumit',['stat',fname],function(txt) {
+			run_process_and_read_stdout(__dirname+'/../bin/prv',['stat',fname],function(txt) {
 				try {
 					var obj=JSON.parse(txt);
 					send_json_response(obj);
 				}
 				catch(err) {
-					send_json_response({success:false,error:'Problem parsing json response from sumit stat: '+txt});
+					send_json_response({success:false,error:'Problem parsing json response from prv stat: '+txt});
 				}
 			});
 		}
@@ -100,7 +100,7 @@ http.createServer(function (REQ, RESP) {
 				send_json_response({success:false,error:"Invalid query."});	
 				return;
 			}
-			run_process_and_read_stdout(__dirname+'/../bin/sumit',['find',absolute_data_directory(),'--checksum='+query.checksum,'--size='+query.size],function(txt) {
+			run_process_and_read_stdout(__dirname+'/../bin/prv',['locate','--path='+absolute_data_directory(),'--checksum='+query.checksum,'--size='+query.size],function(txt) {
 				txt=txt.trim();
 				if (!txt) {
 					find_in_subserver({checksum:query.checksum,size:query.size});
@@ -126,12 +126,13 @@ http.createServer(function (REQ, RESP) {
 			send_as_text_or_link(txt);
 		});
 		function find_in_subserver2(subserver0,callback) {
-			var url0=subserver0.host+':'+subserver0.port+subserver0.path+'?a=find&checksum='+info.checksum+'&size='+info.size+'&recursion_index='+(Number(recursion_index)-1);
+			var subserver_path=subserver0.path||'';
+			var url0=subserver0.host+':'+subserver0.port+subserver_path+'?a=find&checksum='+info.checksum+'&size='+info.size+'&recursion_index='+(Number(recursion_index)-1);
 			http_get_text_file(url0,function(txt0) {
 				if (txt0) {
 					var txt1=txt0;
 					if (looks_like_it_could_be_a_file_path(txt0))
-						txt1=subserver0.host+':'+subserver0.port+'/'+txt0;
+						txt1=subserver0.host+':'+subserver0.port+subserver_path+'/'+txt0;
 					callback({done:true,result:txt1});
 				}
 				else {

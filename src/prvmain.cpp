@@ -15,20 +15,23 @@
 #define PRV_VERSION 0.1
 
 void usage() {
-    printf("prv sha1 [file_name]\n");
+    printf("prv sha1sum [file_name]\n");
+    printf("prv stat [file_name]\n");
     printf("prv create [src_file_name|folder_name] [dst_name.prv (optional)] [--create-temporary-files]\n");
     printf("prv locate [file_name.prv]\n");
+    printf("prv locate --checksum=[] --checksum1000=[optional] --size=[]\n");
     printf("prv recover [src_file_name.prv] [dst_file_name|folder_name (optional)] \n");
 }
 
-int main_sha1(QString path,const QVariantMap &params);
+int main_sha1sum(QString path,const QVariantMap &params);
+int main_stat(QString path,const QVariantMap &params);
 int main_create_file_prv(QString src_path,QString dst_path,const QVariantMap &params);
 int main_create_folder_prv(QString src_path,QString dst_path,const QVariantMap &params);
 int main_locate_file(const QJsonObject &obj,const QVariantMap &params);
 int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
 int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
 
-QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional);
+QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params);
 
 bool should_store_content(QString file_path);
 bool should_store_binary_content(QString file_path);
@@ -52,7 +55,9 @@ int main(int argc,char *argv[]) {
     QString arg2=CLP.unnamed_parameters.value(1);
     QString arg3=CLP.unnamed_parameters.value(2);
 
-    if (arg1=="sha1") {
+    qDebug() << __FILE__ << __LINE__;
+
+    if (arg1=="sha1sum") {
         QString path=arg2;
         if (path.isEmpty()) {
             usage();
@@ -62,7 +67,19 @@ int main(int argc,char *argv[]) {
             qWarning() << "No such file: "+path;
             return -1;
         }
-        return main_sha1(path,CLP.named_parameters);
+        return main_sha1sum(path,CLP.named_parameters);
+    }
+    else if (arg1=="stat") {
+        QString path=arg2;
+        if (path.isEmpty()) {
+            usage();
+            return -1;
+        }
+        if (!QFile::exists(path)) {
+            qWarning() << "No such file: "+path;
+            return -1;
+        }
+        return main_stat(path,CLP.named_parameters);
     }
     else if (arg1=="create") {
         QString src_path=arg2;
@@ -93,19 +110,29 @@ int main(int argc,char *argv[]) {
         }
     }
     else if (arg1=="locate") {
-        QString src_path=arg2;
-        if (src_path.isEmpty()) {
-            return -1;
+        qDebug() << __FILE__ << __LINE__;
+        QJsonObject obj;
+        if (CLP.named_parameters.contains("checksum")) {
+            obj["original_checksum"]=CLP.named_parameters["checksum"].toString();
+            obj["original_checksum_1000"]=CLP.named_parameters["checksum1000"].toString();
+            obj["original_size"]=CLP.named_parameters["size"].toLongLong();
         }
-        if (!QFile::exists(src_path)) {
-            qWarning() << "No such file: "+src_path;
-            return -1;
+        else {
+            QString src_path=arg2;
+            if (src_path.isEmpty()) {
+                println("Source path is empty");
+                return -1;
+            }
+            if (!QFile::exists(src_path)) {
+                qWarning() << "No such file: "+src_path;
+                return -1;
+            }
+            if (!src_path.endsWith(".prv")) {
+                println("prv file must have .prv extension");
+                return -1;
+            }
+            obj=QJsonDocument::fromJson(read_text_file(src_path).toUtf8()).object();
         }
-        if (!src_path.endsWith(".prv")) {
-            println("prv file must have .prv extension");
-            return -1;
-        }
-        QJsonObject obj=QJsonDocument::fromJson(read_text_file(src_path).toUtf8()).object();
         if (obj.contains("original_checksum")) {
             return main_locate_file(obj,CLP.named_parameters);
         }
@@ -156,11 +183,23 @@ void println(QString str) {
     printf("%s\n",str.toUtf8().data());
 }
 
-int main_sha1(QString path,const QVariantMap &params) {
+int main_sha1sum(QString path,const QVariantMap &params) {
     Q_UNUSED(params)
     QString checksum=sumit(path);
     if (checksum.isEmpty()) return -1;
     println(checksum);
+    return 0;
+}
+
+int main_stat(QString path,const QVariantMap &params) {
+    Q_UNUSED(params)
+    QString checksum=sumit(path);
+    if (checksum.isEmpty()) return -1;
+    QJsonObject obj;
+    obj["checksum"]=checksum;
+    obj["checksum1000"]=sumit(path,1000);
+    obj["size"]=QFileInfo(path).size();
+    println(QJsonDocument(obj).toJson());
     return 0;
 }
 
@@ -269,7 +308,7 @@ int main_locate_file(const QJsonObject &obj,const QVariantMap &params) {
     QString checksum=obj["original_checksum"].toString();
     QString checksum1000=obj["original_checksum_1000"].toString();
     long original_size=obj["original_size"].toVariant().toLongLong();
-    QString local_fname=find_local_file(original_size,checksum,checksum1000);
+    QString local_fname=find_local_file(original_size,checksum,checksum1000,params);
     if (local_fname.isEmpty()) {
         println("Unable to find local file:size="+QString::number(original_size)+" checksum="+checksum+" checksum1000="+checksum1000);
         return -1;
@@ -333,15 +372,23 @@ QString get_tmp_path() {
     return temporary_path+"/prv";
 }
 
-QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional) {
+QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params) {
+    qDebug() << "----------------------------------------" << params;
     QJsonObject config=get_config();
-    QJsonArray local_search_paths=config.value("local_search_paths").toArray();
+    QJsonArray local_search_paths0=config.value("local_search_paths").toArray();
+    QStringList local_search_paths;
+    for (int i=0; i<local_search_paths0.count(); i++)
+        local_search_paths << local_search_paths0[0].toString();
     QString temporary_path=config.value("temporary_path").toString();
     if (!temporary_path.isEmpty()) {
         local_search_paths << temporary_path;
     }
+    if (params.contains("path")) {
+        local_search_paths.clear();
+        local_search_paths << params["path"].toString();
+    }
     for (int i=0; i<local_search_paths.count(); i++) {
-        QString search_path=local_search_paths[i].toString();
+        QString search_path=local_search_paths[i];
         QString fname=find_file(search_path,checksum,checksum1000_optional,size,true);
         if (!fname.isEmpty()) return fname;
     }
@@ -353,7 +400,7 @@ int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariant
     QString checksum=obj["original_checksum"].toString();
     QString checksum1000=obj["original_checksum_1000"].toString();
     long original_size=obj["original_size"].toVariant().toLongLong();
-    QString local_fname=find_local_file(original_size,checksum,checksum1000);
+    QString local_fname=find_local_file(original_size,checksum,checksum1000,params);
     if (local_fname.isEmpty()) {
         println("Unable to find local file:size="+QString::number(original_size)+" checksum="+checksum+" checksum1000="+checksum1000);
         return -1;
