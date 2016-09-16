@@ -1,10 +1,10 @@
-# mountainfileserver
+# prv
 
 ## Downloading
 
-> git clone https://github.com/magland/mountainfileserver.git
+> git clone https://github.com/magland/prv.git
 
-> cd mountainfileserver
+> cd prv
 
 ## Installing using docker
 
@@ -15,6 +15,8 @@ Then build the image from the Dockerfile
 > sudo docker build -t mfs .
 
 (It will take some time to build)
+
+**The following instructions need to be updated. They don't apply right now.**
 
 Then you can run the server in the container using:
 > sudo docker run --net="host" -v $PWD/config:/base/config -v $PWD/data:/base/data -it mfs
