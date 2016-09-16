@@ -1,6 +1,7 @@
 bin
 build
 tmp
+.qmake.stash
 
 # C++ objects and libs
 
