@@ -33,21 +33,24 @@ WORKDIR /home/prvuser
 RUN mkdir -p prv
 WORKDIR prv
 
+# Compile prv
+ADD src src
+USER root
+RUN chown -R prvuser:prvuser *
+USER prvuser
+WORKDIR src
+RUN qmake
+RUN make -j 4
+WORKDIR ..
+
 # Add the source files
 ADD prv.json.default prv.json.default
-ADD src src
 ADD prvfileserver prvfileserver
 ADD prv.json.default prv.json.default
 USER root
 RUN chown -R prvuser:prvuser *
 RUN ln -s $PWD /base
 USER prvuser
-
-# Compile prv
-WORKDIR src
-RUN qmake
-RUN make -j 4
-WORKDIR ..
 
 ENV path /home/prvuser/prv/bin:$PATH
 

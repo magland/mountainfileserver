@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QJsonArray>
 #include <QSettings>
+#include <QProcess>
 
 #define PRV_VERSION 0.1
 
@@ -32,6 +33,8 @@ int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariant
 int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
 
 QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params);
+QString find_remote_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params);
+QString find_file(long size,const QString &checksum,const QString &checksum1000_optional,const QVariantMap &params);
 
 bool should_store_content(QString file_path);
 bool should_store_binary_content(QString file_path);
@@ -46,6 +49,7 @@ QString read_text_file(const QString& fname, QTextCodec* codec=0);
 bool write_text_file(const QString& fname, const QString& txt, QTextCodec* codec=0);
 QByteArray read_binary_file(const QString& fname);
 bool write_binary_file(const QString& fname,const QByteArray &data);
+QString make_random_id(int numchars);
 
 int main(int argc,char *argv[]) {
     QCoreApplication app(argc,argv);
@@ -54,8 +58,6 @@ int main(int argc,char *argv[]) {
     QString arg1=CLP.unnamed_parameters.value(0);
     QString arg2=CLP.unnamed_parameters.value(1);
     QString arg3=CLP.unnamed_parameters.value(2);
-
-    qDebug() << __FILE__ << __LINE__;
 
     if (arg1=="sha1sum") {
         QString path=arg2;
@@ -110,7 +112,6 @@ int main(int argc,char *argv[]) {
         }
     }
     else if (arg1=="locate") {
-        qDebug() << __FILE__ << __LINE__;
         QJsonObject obj;
         if (CLP.named_parameters.contains("checksum")) {
             obj["original_checksum"]=CLP.named_parameters["checksum"].toString();
@@ -308,12 +309,10 @@ int main_locate_file(const QJsonObject &obj,const QVariantMap &params) {
     QString checksum=obj["original_checksum"].toString();
     QString checksum1000=obj["original_checksum_1000"].toString();
     long original_size=obj["original_size"].toVariant().toLongLong();
-    QString local_fname=find_local_file(original_size,checksum,checksum1000,params);
-    if (local_fname.isEmpty()) {
-        println("Unable to find local file:size="+QString::number(original_size)+" checksum="+checksum+" checksum1000="+checksum1000);
+    QString fname_or_url=find_file(original_size,checksum,checksum1000,params);
+    if (fname_or_url.isEmpty())
         return -1;
-    }
-    println(local_fname);
+    println(fname_or_url);
     return 0;
 }
 
@@ -331,7 +330,7 @@ QString find_file(QString directory,QString checksum,QString checksum1000_option
                     }
                 }
             }
-            {
+            else {
                 QString checksum1=sumit(path);
                 if (checksum1==checksum) {
                     return path;
@@ -375,7 +374,6 @@ QString get_tmp_path() {
 }
 
 QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params) {
-    qDebug() << "----------------------------------------" << params;
     QJsonObject config=get_config();
     QJsonArray local_search_paths0=config.value("local_search_paths").toArray();
     QStringList local_search_paths;
@@ -393,6 +391,88 @@ QString find_local_file(long size,const QString &checksum, const QString &checks
         QString search_path=local_search_paths[i];
         QString fname=find_file(search_path,checksum,checksum1000_optional,size,true);
         if (!fname.isEmpty()) return fname;
+    }
+    return "";
+}
+
+QString make_temporary_file() {
+    QString file_name=make_random_id(10)+".tmp";
+    return get_tmp_path()+"/"+file_name;
+}
+
+bool curl_is_installed()
+{
+    QProcess P;
+    P.start("curl --version");
+    P.waitForStarted();
+    P.waitForFinished(-1);
+    int exit_code = P.exitCode();
+    return (exit_code == 0);
+}
+
+QString get_http_text_curl_0(const QString& url)
+{
+    if (!curl_is_installed()) {
+        qWarning() << "Problem in http request. It appears that curl is not installed.";
+        return "";
+    }
+    //QString tmp_fname = make_temporary_file()+".curl";
+    QString cmd = QString("curl \"%1\"").arg(url);
+    //int exit_code = system(cmd.toLatin1().data());
+    QProcess P;
+    P.start(cmd);
+    P.waitForStarted();
+    P.waitForFinished(-1);
+    int exit_code = P.exitCode();
+    if (exit_code != 0) {
+        qWarning() << "Problem with system call: " + cmd;
+        //QFile::remove(tmp_fname);
+        return "";
+    }
+    P.readAllStandardError();
+    return P.readAllStandardOutput();
+
+    /*
+
+    QString ret = read_text_file(tmp_fname);
+    QFile::remove(tmp_fname);
+    return ret;
+    */
+}
+
+QString find_remote_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params) {
+    Q_UNUSED(params)
+    QJsonObject config=get_config();
+    QJsonArray remote_servers=config.value("servers").toArray();
+    for (int i=0; i<remote_servers.count(); i++) {
+        QJsonObject server0=remote_servers[i].toObject();
+        QString host=server0["host"].toString();
+        int port=server0["port"].toInt();
+        QString url_path=server0["path"].toString();
+        QString url0=host+":"+QString::number(port)+url_path+QString("/?a=locate&checksum=%1&checksum1000=%2&size=%3").arg(checksum).arg(checksum1000_optional).arg(size);
+        QString txt=get_http_text_curl_0(url0);
+        if (!txt.isEmpty()) {
+            if (!txt.contains(" ")) { //filter out error messages (good idea, or not?)
+                return host+":"+QString::number(port)+url_path+"/"+txt;
+            }
+        }
+    }
+    return "";
+}
+
+QString find_file(long size,const QString &checksum,const QString &checksum1000_optional,const QVariantMap &params) {
+    QString local_fname=find_local_file(size,checksum,checksum1000_optional,params);
+    if (!local_fname.isEmpty()) {
+        return local_fname;
+    }
+
+    if (params.contains("path")) {
+        return "";
+    }
+
+    QString remote_url=find_remote_file(size,checksum,checksum1000_optional,params);
+    if (!remote_url.isEmpty()) {
+        return remote_url;
     }
     return "";
 }

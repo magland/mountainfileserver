@@ -17,6 +17,10 @@ catch(err) {
 }
 config=config.prvfileserver||{};
 
+CLP=new CLParams(process.argv);
+
+config.listen_port=CLP.namedParameters['listen_port']||config.listen_port;
+
 var subservers=config.subservers||[];
 
 process.on('SIGINT', function() {
@@ -117,6 +121,9 @@ http.createServer(function (REQ, RESP) {
 				send_as_text_or_link(txt);
 			});	
 		}
+		else if (method=="list-subservers") {
+			list_subservers();
+		}
 		else {
 			send_json_response({success:false,error:"Unrecognized method: "+method});
 		}
@@ -128,13 +135,34 @@ http.createServer(function (REQ, RESP) {
 		send_text_response("Unsuported request method.");
 	}
 
+	function list_subservers() {
+		var txt='()\n';
+		foreach_async(subservers,list_subservers2,function() {
+			send_text_response(txt);
+		});
+		function list_subservers2(subserver0,callback) {
+			var subserver_path=subserver0.path||'';
+			var url0=subserver0.host+':'+subserver0.port+subserver_path
+			txt+=url0+'\n';
+			http_get_text_file(url0+"/?a=list-subservers",function(txt2) {
+				var lines=txt2.split('\n');
+				for (var i in lines) {
+					if (lines[i]) {
+						txt+='---- '+lines[i]+'\n';
+					}
+				}
+				callback();
+			});
+		}
+	}
+
 	function find_in_subserver(info) {
 		foreach_async(subservers,find_in_subserver2,function(txt) {
 			send_as_text_or_link(txt);
 		});
 		function find_in_subserver2(subserver0,callback) {
 			var subserver_path=subserver0.path||'';
-			var url0=subserver0.host+':'+subserver0.port+subserver_path+'?a=find&checksum='+info.checksum+'&size='+info.size+'&checksum1000='+(info.checksum1000||'')+'&recursion_index='+(Number(recursion_index)-1);
+			var url0=subserver0.host+':'+subserver0.port+subserver_path+'?a=locate&checksum='+info.checksum+'&size='+info.size+'&checksum1000='+(info.checksum1000||'')+'&recursion_index='+(Number(recursion_index)-1);
 			http_get_text_file(url0,function(txt0) {
 				if (txt0) {
 					var txt1=txt0;
@@ -158,6 +186,7 @@ http.createServer(function (REQ, RESP) {
 				return;
 			}
 			func(list[index],function(ret) {
+				if (!ret) ret={};
 				if (ret.done) {
 					callback(ret.result);
 				}
@@ -276,3 +305,31 @@ function looks_like_it_could_be_a_file_path(txt) {
 	if (txt.indexOf(' ')>=0) return false;
 	return true;
 }
+
+function CLParams(argv) {
+	this.unnamedParameters=[];
+	this.namedParameters={};
+
+	var args=argv.slice(2);
+	for (var i=0; i<args.length; i++) {
+		var arg0=args[i];
+		if (arg0.indexOf('--')===0) {
+			arg0=arg0.slice(2);
+			var ind=arg0.indexOf('=');
+			if (ind>=0) {
+				this.namedParameters[arg0.slice(0,ind)]=arg0.slice(ind+1);
+			}
+			else {
+				this.namedParameters[arg0]=args[i+1]||'';
+				i++;
+			}
+		}
+		else if (arg0.indexOf('-')===0) {
+			arg0=arg0.slice(1);
+			this.namedParameters[arg0]='';
+		}
+		else {
+			this.unnamedParameters.push(arg0);
+		}
+	}
+};
