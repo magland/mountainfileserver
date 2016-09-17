@@ -34,6 +34,7 @@ RUN mkdir -p prv
 WORKDIR prv
 
 # Add the source files
+ADD prv.json.default prv.json.default
 ADD src src
 ADD prvfileserver prvfileserver
 USER root
