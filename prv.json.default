@@ -9,10 +9,10 @@
 	},
 	prvfileserver:{
 		"listen_port":"8080",
-		"path":"prv",
+		"url_path":"/prv",
+		"data_directory":"data",
 		"subservers":[
 			{"host":"http://localhost","prv","port":8081}
-		],
-		"data_directory":"data"
+		]
 	}
 }

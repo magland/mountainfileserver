@@ -1,0 +1,11 @@
+To configure prv, do the following:
+
+* Copy prv.json.default to prv.json
+* Modify prv.json to your liking
+
+Remove any parameters in prv.json for which you would like to use the defaults.
+
+Note that prv.json.default is maintained in the git repo whereas prv.json is not.
+
+If you are running the docker version, be sure to add:
+-v $PWD/prv.json:/base/prv.json so your configuration is picked up at run time.

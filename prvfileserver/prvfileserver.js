@@ -1,4 +1,4 @@
-console.log('Running prvfileserver...');
+console.log ('Running prvfileserver...');
 
 //// requires
 var	url=require('url');
@@ -23,13 +23,13 @@ process.on('SIGINT', function() {
     process.exit();
 });
 
-console.log('CONFIG:');
-console.log(config);
-console.log('');
+console.log ('CONFIG:');
+console.log (config);
+console.log ('');
 
-console.log('SUBSERVERS:');
-console.log(subservers);
-console.log('');
+console.log ('SUBSERVERS:');
+console.log (subservers);
+console.log ('');
 
 http.createServer(function (REQ, RESP) {
 	var url_parts = url.parse(REQ.url,true);	
@@ -48,10 +48,18 @@ http.createServer(function (REQ, RESP) {
 		RESP.end();
 	}
 	else if (REQ.method=='GET') {
-		console.log('GET: '+REQ.url);
+		console.log ('GET: '+REQ.url);
 		var path=url_parts.pathname;
 		var query=url_parts.query;
 		var method=query.a||'download';
+
+		if (config.path) {
+			if (path.indexOf(config.url_path)!==0) {
+				send_json_response({success:false,error:'Unexpected path: '+paath});
+				return;
+			}
+			path=path.slice(config.url_path.length);
+		}
 
 		var recursion_index=0;
 		if (is_an_integer_between(Number(query.recursion_index),0,1000)) {
@@ -64,8 +72,6 @@ http.createServer(function (REQ, RESP) {
 				return;
 			}
 		}
-		console.log('::::::::::::::::::::::::::::::::::::::: '+recursion_index);
-
 
 		if (recursion_index<=0) {
 			send_text_response('WARNING: max recursion reached. You probably have cyclic dependencies!!');
@@ -175,7 +181,7 @@ http.createServer(function (REQ, RESP) {
 				callback(txt);
 			});
 		}).on('error', function(e) {
-			console.log("Error in response from "+url+": " + e.message);
+			console.log ("Error in response from "+url+": " + e.message);
 			callback('');
 		});
 	}
@@ -215,7 +221,7 @@ http.createServer(function (REQ, RESP) {
 console.log ('Listening on port '+config.listen_port);
 
 function run_process_and_read_stdout(exe,args,callback) {
-	console.log('RUNNING:'+exe+' '+args.join(' '));
+	console.log ('RUNNING:'+exe+' '+args.join(' '));
 	var P=require('child_process').spawn(exe,args);
 	var txt='';
 	P.stdout.on('data',function(chunk) {
