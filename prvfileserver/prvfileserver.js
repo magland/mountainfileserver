@@ -141,6 +141,10 @@ http.createServer(function (REQ, RESP) {
 			send_text_response(txt);
 		});
 		function list_subservers2(subserver0,callback) {
+			if (!subserver0.host) {
+				callback();
+				return;
+			}
 			var subserver_path=subserver0.path||'';
 			var url0=subserver0.host+':'+subserver0.port+subserver_path
 			txt+=url0+'\n';
@@ -161,6 +165,10 @@ http.createServer(function (REQ, RESP) {
 			send_as_text_or_link(txt);
 		});
 		function find_in_subserver2(subserver0,callback) {
+			if (!subserver0.host) {
+				callback({done:false});;
+				return;
+			}
 			var subserver_path=subserver0.path||'';
 			var url0=subserver0.host+':'+subserver0.port+subserver_path+'?a=locate&checksum='+info.checksum+'&size='+info.size+'&checksum1000='+(info.checksum1000||'')+'&recursion_index='+(Number(recursion_index)-1);
 			http_get_text_file(url0,function(txt0) {
