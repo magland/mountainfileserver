@@ -481,6 +481,10 @@ QString get_http_text_curl_0(const QString& url)
     */
 }
 
+bool is_url(QString txt) {
+    return ((txt.startsWith("http://"))||(!txt.startsWith("https://")));
+}
+
 QString find_remote_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params) {
     Q_UNUSED(params)
     QJsonObject config=get_config();
@@ -494,7 +498,10 @@ QString find_remote_file(long size,const QString &checksum, const QString &check
         QString txt=get_http_text_curl_0(url0);
         if (!txt.isEmpty()) {
             if (!txt.contains(" ")) { //filter out error messages (good idea, or not?)
-                return host+":"+QString::number(port)+url_path+"/"+txt;
+                if (!is_url(txt)) {
+                    txt=host+":"+QString::number(port)+url_path+"/"+txt;
+                }
+                return txt;
             }
         }
     }
@@ -523,9 +530,9 @@ int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariant
     QString checksum=obj["original_checksum"].toString();
     QString checksum1000=obj["original_checksum_1000"].toString();
     long original_size=obj["original_size"].toVariant().toLongLong();
-    QString local_fname=find_local_file(original_size,checksum,checksum1000,params);
-    if (local_fname.isEmpty()) {
-        println("Unable to find local file:size="+QString::number(original_size)+" checksum="+checksum+" checksum1000="+checksum1000);
+    QString fname_or_url=find_file(original_size,checksum,checksum1000,params);
+    if (fname_or_url.isEmpty()) {
+        println("Unable to find file: size="+QString::number(original_size)+" checksum="+checksum+" checksum1000="+checksum1000);
         return -1;
     }
     if (QFile::exists(dst_path)) {
@@ -534,11 +541,20 @@ int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariant
             return -1;
         }
     }
-    if (!QFile::copy(local_fname,dst_path)) {
-        qWarning() << "Unable to copy file: "+local_fname+" "+dst_path;
-        return -1;
+    if (!is_url(fname_or_url)) {
+        println(QString("Copying %1 to %2").arg(fname_or_url).arg(dst_path));
+        if (!QFile::copy(fname_or_url,dst_path)) {
+            qWarning() << "Unable to copy file: "+fname_or_url+" "+dst_path;
+            return -1;
+        }
+        return 0;
     }
-    return 0;
+    else {
+        println(QString("Downloading %1 to %2").arg(fname_or_url).arg(dst_path));
+        QString cmd=QString("curl %1 > %2").arg(fname_or_url).arg(dst_path);
+        return system(cmd.toUtf8().data());
+    }
+
 }
 
 int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params) {
