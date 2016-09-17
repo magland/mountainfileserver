@@ -53,9 +53,9 @@ http.createServer(function (REQ, RESP) {
 		var query=url_parts.query;
 		var method=query.a||'download';
 
-		if (config.path) {
+		if (config.url_path) {
 			if (path.indexOf(config.url_path)!==0) {
-				send_json_response({success:false,error:'Unexpected path: '+paath});
+				send_json_response({success:false,error:'Unexpected path: '+path});
 				return;
 			}
 			path=path.slice(config.url_path.length);
@@ -102,15 +102,15 @@ http.createServer(function (REQ, RESP) {
 				}
 			});
 		}
-		else if (method=="find") {
+		else if (method=="locate") {
 			if ((!query.checksum)||(!query.size)) {
 				send_json_response({success:false,error:"Invalid query."});	
 				return;
 			}
-			run_process_and_read_stdout(__dirname+'/../bin/prv',['locate','--path='+absolute_data_directory(),'--checksum='+query.checksum,'--size='+query.size],function(txt) {
+			run_process_and_read_stdout(__dirname+'/../bin/prv',['locate','--path='+absolute_data_directory(),'--checksum='+query.checksum,'--size='+query.size,'--checksum1000='+(query.checksum1000||'')],function(txt) {
 				txt=txt.trim();
 				if (!txt) {
-					find_in_subserver({checksum:query.checksum,size:query.size});
+					find_in_subserver({checksum:query.checksum,size:query.size,checksum1000:(query.checksum1000||'')});
 					return;
 				}
 				if (txt) txt=txt.slice(absolute_data_directory().length+1);
@@ -134,7 +134,7 @@ http.createServer(function (REQ, RESP) {
 		});
 		function find_in_subserver2(subserver0,callback) {
 			var subserver_path=subserver0.path||'';
-			var url0=subserver0.host+':'+subserver0.port+subserver_path+'?a=find&checksum='+info.checksum+'&size='+info.size+'&recursion_index='+(Number(recursion_index)-1);
+			var url0=subserver0.host+':'+subserver0.port+subserver_path+'?a=find&checksum='+info.checksum+'&size='+info.size+'&checksum1000='+(info.checksum1000||'')+'&recursion_index='+(Number(recursion_index)-1);
 			http_get_text_file(url0,function(txt0) {
 				if (txt0) {
 					var txt1=txt0;
