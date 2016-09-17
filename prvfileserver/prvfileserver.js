@@ -10,7 +10,7 @@ var extend=require('extend');
 
 var config=JSON.parse(fs.readFileSync(__dirname+'/../prv.json.default','utf8'));
 try {
-	config_user=ini.parse(fs.readFileSync(__dirname+'/../prv.json','utf8'));
+	var config_user=JSON.parse(fs.readFileSync(__dirname+'/../prv.json','utf8'));
 	config=extend(true,config,config_user);
 }
 catch(err) {
