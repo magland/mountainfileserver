@@ -482,7 +482,7 @@ QString get_http_text_curl_0(const QString& url)
 }
 
 bool is_url(QString txt) {
-    return ((txt.startsWith("http://"))||(!txt.startsWith("https://")));
+    return ((txt.startsWith("http://"))||(txt.startsWith("https://")));
 }
 
 QString find_remote_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params) {
