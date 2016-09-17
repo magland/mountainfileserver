@@ -21,7 +21,9 @@ void usage() {
     printf("prv create [src_file_name|folder_name] [dst_name.prv (optional)] [--create-temporary-files]\n");
     printf("prv locate [file_name.prv]\n");
     printf("prv locate --checksum=[] --checksum1000=[optional] --size=[]\n");
+    printf("prv download --checksum=[] --checksum1000=[optional] --size=[]\n");
     printf("prv recover [src_file_name.prv] [dst_file_name|folder_name (optional)] \n");
+    printf("prv list-subservers\n");
 }
 
 int main_sha1sum(QString path,const QVariantMap &params);
@@ -29,8 +31,10 @@ int main_stat(QString path,const QVariantMap &params);
 int main_create_file_prv(QString src_path,QString dst_path,const QVariantMap &params);
 int main_create_folder_prv(QString src_path,QString dst_path,const QVariantMap &params);
 int main_locate_file(const QJsonObject &obj,const QVariantMap &params);
+int main_download_file(const QJsonObject &obj,const QVariantMap &params);
 int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
 int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
+int main_list_subservers(const QVariantMap &params);
 
 QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params);
 QString find_remote_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params);
@@ -50,6 +54,7 @@ bool write_text_file(const QString& fname, const QString& txt, QTextCodec* codec
 QByteArray read_binary_file(const QString& fname);
 bool write_binary_file(const QString& fname,const QByteArray &data);
 QString make_random_id(int numchars);
+QString get_http_text_curl_0(const QString& url);
 
 int main(int argc,char *argv[]) {
     QCoreApplication app(argc,argv);
@@ -111,7 +116,7 @@ int main(int argc,char *argv[]) {
             return -1;
         }
     }
-    else if (arg1=="locate") {
+    else if ((arg1=="locate")||(arg1=="download")) {
         QJsonObject obj;
         if (CLP.named_parameters.contains("checksum")) {
             obj["original_checksum"]=CLP.named_parameters["checksum"].toString();
@@ -135,12 +140,18 @@ int main(int argc,char *argv[]) {
             obj=QJsonDocument::fromJson(read_text_file(src_path).toUtf8()).object();
         }
         if (obj.contains("original_checksum")) {
-            return main_locate_file(obj,CLP.named_parameters);
+            if (arg1=="locate")
+                main_locate_file(obj,CLP.named_parameters);
+            else
+                main_download_file(obj,CLP.named_parameters);
         }
         else {
-            printf("Only files can be located.\n");
+            printf("Only files can be found using 'locate' or 'download'.\n");
             return -1;
         }
+    }
+    else if (arg1=="list-subservers") {
+        return main_list_subservers(CLP.named_parameters);
     }
     else if (arg1=="recover") {
         QString src_path=arg2;
@@ -314,6 +325,36 @@ int main_locate_file(const QJsonObject &obj,const QVariantMap &params) {
         return -1;
     println(fname_or_url);
     return 0;
+}
+
+int main_list_subservers(const QVariantMap &params) {
+    Q_UNUSED(params)
+    QJsonObject config=get_config();
+    QJsonArray remote_servers=config.value("servers").toArray();
+    for (int i=0; i<remote_servers.count(); i++) {
+        QJsonObject server0=remote_servers[i].toObject();
+        QString host=server0["host"].toString();
+        int port=server0["port"].toInt();
+        QString url_path=server0["path"].toString();
+        QString url0=host+":"+QString::number(port)+url_path+QString("/?a=list-subservers");
+        println("Connecting to "+url0);
+        QString txt=get_http_text_curl_0(url0);
+        print(txt+"\n\n");
+    }
+    return 0;
+}
+
+int main_download_file(const QJsonObject &obj,const QVariantMap &params) {
+    Q_UNUSED(params)
+    QString checksum=obj["original_checksum"].toString();
+    QString checksum1000=obj["original_checksum_1000"].toString();
+    long original_size=obj["original_size"].toVariant().toLongLong();
+    QString fname_or_url=find_file(original_size,checksum,checksum1000,params);
+    if (fname_or_url.isEmpty())
+        return -1;
+
+    QString cmd=QString("curl %1").arg(fname_or_url);
+    return system(cmd.toUtf8().data());
 }
 
 QString find_file(QString directory,QString checksum,QString checksum1000_optional,long size,bool recursive) {
