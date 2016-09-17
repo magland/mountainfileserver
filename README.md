@@ -6,55 +6,48 @@
 
 > cd prv
 
-## Installing using docker
+## Installing web server using docker
 
 Install docker (on ubuntu this would be apt-get install docker.io)
 
 Then build the image from the Dockerfile
 
-> sudo docker build -t mfs .
+> sudo docker build -t prv .
 
-(It will take some time to build)
-
-**The following instructions need to be updated. They don't apply right now.**
+(The first time you run this, it will take some time to build because it downloads ubuntu and qt5)
 
 Then you can run the server in the container using:
-> sudo docker run --net="host" -v $PWD/config:/base/config -v $PWD/data:/base/data -it mfs
+> sudo docker run --net="host" -v $PWD/prv.json:/base/prv.json -v $PWD/data:/base/data -it prv nodejs prvfileserver/prvfileserver.js
 
-If instead you want to explore around the container you can add /bin/bash to the end of this command.
+If instead you want to explore around the container you can replace the nodejs command at the end by /bin/bash.
 
-Change "-it" to "-t" if you don't want it to stop when the terminal closes.
+Change "-it" to "-t" if you don't want it to stop when the terminal closes (or Ctr+C is pressed).
 In that case you will need to stop the container via
 
-> sudo docker ps
+> sudo docker ps (to find its name)
 
-> sudo docker kill [name_of_container]
+> sudo docker kill [its name]
 
 ## Testing the installation
 
 Open a web browser and point it to
 
-> http://localhost:8080/hello_world.txt
+> http://localhost:8080/prv/hello_world.txt
 
-> http://localhost:8080/hello_world.txt?a=stat
+> http://localhost:8080/prv/hello_world.txt?a=stat
 
-You can replace localhost by the ip of your server if you are on a different machine.
+> http://localhost:8080/prv/?a=locate&checksum=[fill in]&size=[fill in]
 
-## Configuring the listen port
+Replace localhost by the ip of your server if you are on a different machine.
 
-> cp config/mountainfileserver.ini.example config/mountainfileserver.ini
+## Configuring the listen port, data directory, etc
 
-Then edit this .ini file appropriately.
+> cp prv.json.default prv.json
 
-Rebuild the image, and run the container
+Then edit this file as needed. You should delete any fields for which you want to use the default value.
 
-## Configuring the data directory
+Rebuild the image, and run the container. Note that the option "-v $PWD/prv.json:/base/prv.json" moves this configuration to the container at run time, whereas prv.json.default is maintained in the git repo and is added to the container/image at build time.
 
-To point the file server to a different base data directory, simply replace
-"$PWD/data" in your run command by the absolute path of your data directory.
-For example
-
-> -v /path/to/data:/base/data
 
 
 
