@@ -166,8 +166,9 @@ http.createServer(function (REQ, RESP) {
 			http_get_text_file(url0,function(txt0) {
 				if (txt0) {
 					var txt1=txt0;
-					if (looks_like_it_could_be_a_file_path(txt0))
+					if (looks_like_it_could_be_a_file_path(txt0)) {
 						txt1=subserver0.host+':'+subserver0.port+subserver_path+'/'+txt0;
+					}
 					callback({done:true,result:txt1});
 				}
 				else {
@@ -234,7 +235,7 @@ http.createServer(function (REQ, RESP) {
 		RESP.end(text);
 	}
 	function send_as_text_or_link(text) {
-		if ((query.return_link=='true')&&(looks_like_it_could_be_a_file_path(text))) {
+		if ((query.return_link=='true')&&(looks_like_it_could_be_a_url(text))) {
 			if (text) {
 				send_html_response('<html><body><a href="'+text+'">'+text+'</a></body></html>');
 			}
@@ -303,7 +304,15 @@ function is_an_integer_between(num,i1,i2) {
 
 function looks_like_it_could_be_a_file_path(txt) {
 	if (txt.indexOf(' ')>=0) return false;
+	if (txt.indexOf('http://')==0) return false;
+	if (txt.indexOf('https://')==0) return false;
 	return true;
+}
+
+function looks_like_it_could_be_a_url(txt) {
+	if (txt.indexOf('http://')==0) return true;
+	if (txt.indexOf('https://')==0) return true;
+	return false;
 }
 
 function CLParams(argv) {
