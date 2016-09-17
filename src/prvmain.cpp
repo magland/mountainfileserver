@@ -357,6 +357,8 @@ QJsonObject get_config() {
     if (QFile::exists(fname2)) {
         obj2=QJsonDocument::fromJson(read_text_file(fname2).toUtf8()).object();
     }
+    obj1=obj1["prv"].toObject();
+    obj2=obj2["prv"].toObject();
     QStringList keys2=obj2.keys();
     foreach (QString key,keys2) {
         obj1[key]=obj2[key];

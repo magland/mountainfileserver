@@ -15,6 +15,7 @@ try {
 }
 catch(err) {
 }
+config=config.prvfileserver||{};
 
 var subservers=config.subservers||[];
 
