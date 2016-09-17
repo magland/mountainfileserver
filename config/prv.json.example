@@ -1,9 +1,18 @@
 {
-	"temporary_path":"/tmp",
-	"local_search_paths":[],
-	"listen_port":"8080",
-	"subservers":[
-		{"host":"http://localhost","port":8081}
-	],
-	"data_directory":"data"
+	prv:{
+		"temporary_path":"/tmp",
+		"local_search_paths":[],
+		"servers":[
+			{"host":"http://localhost/prv","port":8081},
+			{"host":"http://datalaboratory.org/prv","port":8081}
+		]
+	},
+	prvfileserver:{
+		"listen_port":"8080",
+		"path":"prv",
+		"subservers":[
+			{"host":"http://localhost","prv","port":8081}
+		],
+		"data_directory":"data"
+	}
 }

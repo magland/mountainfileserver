@@ -37,6 +37,7 @@ WORKDIR prv
 ADD prv.json.default prv.json.default
 ADD src src
 ADD prvfileserver prvfileserver
+ADD prv.json.default prv.json.default
 USER root
 RUN chown -R prvuser:prvuser *
 RUN ln -s $PWD /base
