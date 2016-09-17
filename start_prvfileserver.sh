@@ -10,4 +10,4 @@
 abs_data_directory=${1-$PWD/data}
 shift #consume the first argument -- pass the rest to prvfileserver.js
 
-sudo docker run --net="host" -v $PWD/prv.json:/base/prv.json -v $abs_data_directory:/base/data -it prv nodejs prvfileserver/prvfileserver.js "$@"
+sudo docker run --net="host" -v $PWD/prv.json:/base/prv.json -v $abs_data_directory:/base/data -t prv nodejs prvfileserver/prvfileserver.js "$@"
