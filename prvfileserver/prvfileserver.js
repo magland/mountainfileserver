@@ -171,7 +171,7 @@ http.createServer(function (REQ, RESP) {
 					if (!ok) return;
 					var elapsed0=(new Date())-timer0;
 					if (elapsed0>5000) {
-						console.log ('Received '+num_bytes_received+' of '+size+' bytes. '+(num_bytes_received/size)+'%...');
+						console.log ('Received '+num_bytes_received+' of '+size+' bytes. '+Math.floor(100*num_bytes_received/size)+'%...');
 						timer0=new Date();
 					}
 					num_bytes_received+=chunk.length;
@@ -198,10 +198,12 @@ http.createServer(function (REQ, RESP) {
 					write_stream.end();
 				});
 				REQ.socket.on('close',function() {
-					send_json_response({success:false,error:'Request socket closed before end.'});
-					write_stream.end();
-					remove_file(tmp_fname);
-					return;
+					if (!ended) {
+						send_json_response({success:false,error:'Request socket closed before end.'});
+						write_stream.end();
+						remove_file(tmp_fname);
+						return;
+					}
 				});
 				write_stream.on('finish',function() {
 					console.log ('Write stream has finished.');
