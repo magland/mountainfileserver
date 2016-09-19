@@ -157,7 +157,8 @@ http.createServer(function (REQ, RESP) {
 				var ok=true;
 				write_stream=fs.createWriteStream(tmp_fname);
 				write_stream.on('error',function(err) {
-					console.log ('ERROR: '+JSON.stringify(err));
+					var errstr='ERROR: '+JSON.stringify(err);
+					console.log (errstr);
 					write_stream.end();
 					remove_file(tmp_fname);
 					ok=false;
@@ -167,7 +168,6 @@ http.createServer(function (REQ, RESP) {
 				var num_bytes_received=0;
 				REQ.on('data',function(chunk) {
 					if (!ok) return;
-					console.log('Received data: '+chunk.length);
 					num_bytes_received+=chunk.length;
 					if (num_bytes_received>size) {
 						send_json_response({success:false,error:'Received more bytes than expected. '+num_bytes_received+'>'+size});
@@ -322,14 +322,17 @@ http.createServer(function (REQ, RESP) {
 	}
 	
 	function send_json_response(obj) {
+		console.log ('RESPONSE: '+JSON.stringify(obj));
 		RESP.writeHead(200, {"Access-Control-Allow-Origin":"*", "Content-Type":"application/json"});
 		RESP.end(JSON.stringify(obj));
 	}
 	function send_text_response(text) {
+		console.log ('RESPONSE: '+text);
 		RESP.writeHead(200, {"Access-Control-Allow-Origin":"*", "Content-Type":"text/plain"});
 		RESP.end(text);
 	}
 	function send_html_response(text) {
+		console.log ('RESPONSE: '+text);
 		RESP.writeHead(200, {"Access-Control-Allow-Origin":"*", "Content-Type":"text/html"});
 		RESP.end(text);
 	}
