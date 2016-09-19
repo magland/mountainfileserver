@@ -520,7 +520,13 @@ QString http_post_file_curl_0(const QString& url,const QString &filename) {
         qWarning() << "Problem in http post. It appears that curl is not installed.";
         return "";
     }
-    QString cmd = QString("curl -i -X POST \"%1\" -H \"Content-Type: application/octet-stream\" --data-binary @%2").arg(url).arg(filename);
+    QString cmd = QString("curl --verbose --progress-bar -i -X POST \"%1\" -H \"Content-Type: application/octet-stream\" --data-binary @%2 -o tmp.txt").arg(url).arg(filename);
+
+    QProcess::execute(cmd);
+    return "";
+
+    /*
+
     QProcess P;
     P.start(cmd);
     P.waitForStarted();
@@ -539,6 +545,7 @@ QString http_post_file_curl_0(const QString& url,const QString &filename) {
         if (ind2>=0) ret=ret.mid(ind2+4);
     }
     return ret;
+    */
 }
 
 bool is_url(QString txt) {

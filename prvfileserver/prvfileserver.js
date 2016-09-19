@@ -178,8 +178,10 @@ http.createServer(function (REQ, RESP) {
 					}
 					write_stream.write(chunk,'binary');
 				});
+				var ended=false;
 				REQ.on('end',function() {
 					if (!ok) return;
+					ended=true;
 					if (num_bytes_received!=size) {
 						send_json_response({success:false,error:'Unexpected num bytes received '+num_bytes_received+' <> '+size});
 						write_stream.end();
@@ -187,6 +189,12 @@ http.createServer(function (REQ, RESP) {
 						return;
 					}
 					write_stream.end();
+				});
+				REQ.socket.on('close',function() {
+					send_json_response({success:false,error:'Request socket closed before end.'});
+					write_stream.end();
+					remove_file(tmp_fname);
+					return;
 				});
 				write_stream.on('finish',function() {
 					if (get_file_size(tmp_fname)!=num_bytes_received) {
