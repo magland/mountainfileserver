@@ -24,6 +24,7 @@ void usage() {
     printf("prv download --checksum=[] --checksum1000=[optional] --size=[]\n");
     printf("prv recover [src_file_name.prv] [dst_file_name|folder_name (optional)] \n");
     printf("prv list-subservers\n");
+    printf("prv upload [src_file_name] [prvfileserver url]\n");
 }
 
 int main_sha1sum(QString path,const QVariantMap &params);
@@ -35,6 +36,7 @@ int main_download_file(const QJsonObject &obj,const QVariantMap &params);
 int main_recover_file_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
 int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVariantMap &params);
 int main_list_subservers(const QVariantMap &params);
+int main_upload(QString src_path,QString server_url,const QVariantMap &params);
 
 QString find_local_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params);
 QString find_remote_file(long size,const QString &checksum, const QString &checksum1000_optional,const QVariantMap &params);
@@ -44,6 +46,7 @@ bool should_store_content(QString file_path);
 bool should_store_binary_content(QString file_path);
 QJsonObject get_config();
 QString get_tmp_path();
+QString get_server_url(QString url_or_server_name);
 
 void print(QString str);
 void println(QString str);
@@ -54,7 +57,8 @@ bool write_text_file(const QString& fname, const QString& txt, QTextCodec* codec
 QByteArray read_binary_file(const QString& fname);
 bool write_binary_file(const QString& fname,const QByteArray &data);
 QString make_random_id(int numchars);
-QString get_http_text_curl_0(const QString& url);
+QString http_get_text_curl_0(const QString& url);
+QString http_post_file_curl_0(const QString& url,const QString &filename);
 
 int main(int argc,char *argv[]) {
     QCoreApplication app(argc,argv);
@@ -133,11 +137,20 @@ int main(int argc,char *argv[]) {
                 qWarning() << "No such file: "+src_path;
                 return -1;
             }
-            if (!src_path.endsWith(".prv")) {
-                println("prv file must have .prv extension");
-                return -1;
+            if (src_path.endsWith(".prv")) {
+                obj=QJsonDocument::fromJson(read_text_file(src_path).toUtf8()).object();
             }
-            obj=QJsonDocument::fromJson(read_text_file(src_path).toUtf8()).object();
+            else {
+                if (arg1=="locate") {
+                    obj["original_checksum"]=sumit(src_path);
+                    obj["original_checksum_1000"]=sumit(src_path,1000);
+                    obj["original_size"]=QFileInfo(src_path).size();
+                }
+                else {
+                    println("prv file must have .prv extension");
+                    return -1;
+                }
+            }
         }
         if (obj.contains("original_checksum")) {
             if (arg1=="locate")
@@ -157,6 +170,7 @@ int main(int argc,char *argv[]) {
         QString src_path=arg2;
         QString dst_path=arg3;
         if (src_path.isEmpty()) {
+            usage();
             return -1;
         }
         if (!QFile::exists(src_path)) {
@@ -178,6 +192,23 @@ int main(int argc,char *argv[]) {
         else {
             return main_recover_folder_prv(obj,dst_path,CLP.named_parameters);
         }
+    }
+    else if (arg1=="upload") {
+        QString src_path=arg2;
+        QString server_url=get_server_url(arg3);
+        if (src_path.isEmpty()) {
+            usage();
+            return -1;
+        }
+        if (!QFile::exists(src_path)) {
+            qWarning() << "No such file: "+src_path;
+            return -1;
+        }
+        if (src_path.endsWith(".prv")) {
+            qWarning() << "Cannot upload a .prv file.";
+            return -1;
+        }
+        main_upload(src_path,server_url,CLP.named_parameters);
     }
     else {
         usage();
@@ -338,7 +369,7 @@ int main_list_subservers(const QVariantMap &params) {
         QString url_path=server0["path"].toString();
         QString url0=host+":"+QString::number(port)+url_path+QString("/?a=list-subservers");
         println("Connecting to "+url0);
-        QString txt=get_http_text_curl_0(url0);
+        QString txt=http_get_text_curl_0(url0);
         print(txt+"\n\n");
     }
     return 0;
@@ -391,11 +422,21 @@ QString find_file(QString directory,QString checksum,QString checksum1000_option
 
 QJsonObject get_config() {
     QString fname1=qApp->applicationDirPath()+"/../prv.json.default";
-    QString fname2=qApp->applicationDirPath()+"/../config/prv.json";
-    QJsonObject obj1=QJsonDocument::fromJson(read_text_file(fname1).toUtf8()).object();
+    QString fname2=qApp->applicationDirPath()+"/../prv.json";
+    QJsonParseError err1;
+    QJsonObject obj1=QJsonDocument::fromJson(read_text_file(fname1).toUtf8(),&err1).object();
+    if (err1.error!=QJsonParseError::NoError) {
+        qWarning() << "Error parsing configuration file: "+fname1+": "+err1.errorString();
+        abort();
+    }
     QJsonObject obj2;
     if (QFile::exists(fname2)) {
-        obj2=QJsonDocument::fromJson(read_text_file(fname2).toUtf8()).object();
+        QJsonParseError err2;
+        obj2=QJsonDocument::fromJson(read_text_file(fname2).toUtf8(),&err2).object();
+        if (err2.error!=QJsonParseError::NoError) {
+            qWarning() << "Error parsing configuration file: "+fname2+": "+err2.errorString();
+            abort();
+        }
     }
     obj1=obj1["prv"].toObject();
     obj2=obj2["prv"].toObject();
@@ -451,7 +492,7 @@ bool curl_is_installed()
     return (exit_code == 0);
 }
 
-QString get_http_text_curl_0(const QString& url)
+QString http_get_text_curl_0(const QString& url)
 {
     if (!curl_is_installed()) {
         qWarning() << "Problem in http request. It appears that curl is not installed.";
@@ -472,13 +513,32 @@ QString get_http_text_curl_0(const QString& url)
     }
     P.readAllStandardError();
     return P.readAllStandardOutput();
+}
 
-    /*
-
-    QString ret = read_text_file(tmp_fname);
-    QFile::remove(tmp_fname);
+QString http_post_file_curl_0(const QString& url,const QString &filename) {
+    if (!curl_is_installed()) {
+        qWarning() << "Problem in http post. It appears that curl is not installed.";
+        return "";
+    }
+    QString cmd = QString("curl -i -X POST \"%1\" -H \"Content-Type: application/octet-stream\" --data-binary @%2").arg(url).arg(filename);
+    QProcess P;
+    P.start(cmd);
+    P.waitForStarted();
+    P.waitForFinished(-1);
+    int exit_code = P.exitCode();
+    if (exit_code != 0) {
+        qWarning() << "Problem with system call: " + cmd;
+        //QFile::remove(tmp_fname);
+        return "";
+    }
+    P.readAllStandardError();
+    QByteArray ret=P.readAllStandardOutput();
+    int ind1=ret.indexOf("\r\n\r\n");
+    if (ind1>=0) {
+        int ind2=ret.indexOf("\r\n\r\n",ind1+4);
+        if (ind2>=0) ret=ret.mid(ind2+4);
+    }
     return ret;
-    */
 }
 
 bool is_url(QString txt) {
@@ -495,7 +555,7 @@ QString find_remote_file(long size,const QString &checksum, const QString &check
         int port=server0["port"].toInt();
         QString url_path=server0["path"].toString();
         QString url0=host+":"+QString::number(port)+url_path+QString("/?a=locate&checksum=%1&checksum1000=%2&size=%3").arg(checksum).arg(checksum1000_optional).arg(size);
-        QString txt=get_http_text_curl_0(url0);
+        QString txt=http_get_text_curl_0(url0);
         if (!txt.isEmpty()) {
             if (!txt.contains(" ")) { //filter out error messages (good idea, or not?)
                 if (!is_url(txt)) {
@@ -625,6 +685,31 @@ int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVaria
         int ret=main_recover_folder_prv(obj0,dst_path+"/"+fname0,params);
         if (ret<0) return ret;
     }
+    return 0;
+}
+
+int main_upload(QString src_path,QString server_url,const QVariantMap &params) {
+    Q_UNUSED(params)
+    long size0=QFileInfo(src_path).size();
+    QString url=server_url+"?a=upload"+"&checksum="+sumit(src_path)+"&size="+QString::number(size0);
+    QString ret=http_post_file_curl_0(url,src_path);
+    if (ret.isEmpty()) {
+        qWarning() << "Problem posting file to: "+url;
+        return -1;
+    }
+    QJsonParseError err0;
+    QJsonObject obj=QJsonDocument::fromJson(ret.toUtf8(),&err0).object();
+    if (err0.error!=QJsonParseError::NoError) {
+        qDebug() << ret;
+        println(QString("Error uploading file."));
+        return -1;
+    }
+    if (!obj["success"].toBool()) {
+        QString error=obj["error"].toString();
+        println(QString("Error uploading file: %1").arg(error));
+        return -1;
+    }
+    println(QString("Uploaded file (%1 MB).").arg(size0*1.0/1e6));
     return 0;
 }
 
@@ -763,4 +848,20 @@ bool write_text_file(const QString& fname, const QString& txt, QTextCodec* codec
     }
 
     return true;
+}
+
+QString get_server_url(QString url_or_server_name) {
+    QJsonObject config=get_config();
+    QJsonArray remote_servers=config.value("servers").toArray();
+    for (int i=0; i<remote_servers.count(); i++) {
+        QJsonObject server0=remote_servers[i].toObject();
+        if (server0["name"].toString()==url_or_server_name) {
+            QString host=server0["host"].toString();
+            int port=server0["port"].toInt();
+            QString url_path=server0["path"].toString();
+            QString url0=host+":"+QString::number(port)+url_path;
+            return url0;
+        }
+    }
+    return url_or_server_name;
 }

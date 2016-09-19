@@ -36,7 +36,11 @@ console.log (subservers);
 console.log ('');
 
 http.createServer(function (REQ, RESP) {
-	var url_parts = url.parse(REQ.url,true);	
+	var url_parts = url.parse(REQ.url,true);
+	var path=url_parts.pathname;
+	var query=url_parts.query;
+	var method=query.a||'download';	
+
 	if (REQ.method == 'OPTIONS') {
 		var headers = {};
 		
@@ -53,10 +57,6 @@ http.createServer(function (REQ, RESP) {
 	}
 	else if (REQ.method=='GET') {
 		console.log ('GET: '+REQ.url);
-		var path=url_parts.pathname;
-		var query=url_parts.query;
-		var method=query.a||'download';
-
 		if (config.url_path) {
 			if (path.indexOf(config.url_path)!==0) {
 				send_json_response({success:false,error:'Unexpected path: '+path});
@@ -129,7 +129,90 @@ http.createServer(function (REQ, RESP) {
 		}
 	}
 	else if(REQ.method=='POST') {
-		send_text_response("POST not supported!");
+		console.log('POST: '+REQ.url);
+		if (method=='upload') {
+			if (!config.enable_uploads) {
+				send_json_response({error:true,error:'Uploads are not enabled on this server.'});
+				return;
+			}
+			if (path!=config.url_path) {
+				send_json_response({error:true,error:'Unexpected path: '+path+' <> '+config.url_path});
+				return;	
+			}
+			var checksum=query.checksum;
+			var size=Number(query.size);
+			if ((!checksum)||(!size)) {
+				send_json_response({error:true,error:"Invalid query."});
+				return;
+			}
+			if (!is_valid_checksum(checksum)) {
+				send_json_response({error:true,error:"Invalid checksum."});
+				return;
+			}
+			mkdir_if_needed(config.data_directory+'/uploads');
+			var new_fname=config.data_directory+'/uploads/'+checksum;
+			var tmp_fname=new_fname+'.'+make_random_id(5)+'.upload.tmp';
+			{
+				var write_stream;
+				var ok=true;
+				write_stream=fs.createWriteStream(tmp_fname);
+				write_stream.on('error',function(err) {
+					console.log ('ERROR: '+JSON.stringify(err));
+					write_stream.end();
+					remove_file(tmp_fname);
+					ok=false;
+					send_json_response({success:false,error:JSON.stringify(err)});
+					return;
+				});
+				var num_bytes_received=0;
+				REQ.on('data',function(chunk) {
+					if (!ok) return;
+					console.log('Received data: '+chunk.length);
+					num_bytes_received+=chunk.length;
+					if (num_bytes_received>size) {
+						send_json_response({success:false,error:'Received more bytes than expected. '+num_bytes_received+'>'+size});
+						write_stream.end();
+						remove_file(tmp_fname);
+						REQ.socket.destroy();
+						return;
+					}
+					write_stream.write(chunk,'binary');
+				});
+				REQ.on('end',function() {
+					if (!ok) return;
+					if (num_bytes_received!=size) {
+						send_json_response({success:false,error:'Unexpected num bytes received '+num_bytes_received+' <> '+size});
+						write_stream.end();
+						remove_file(tmp_fname);
+						return;
+					}
+					write_stream.end();
+				});
+				write_stream.on('finish',function() {
+					if (get_file_size(tmp_fname)!=num_bytes_received) {
+						send_json_response({success:false,error:'Unexpected size compared with num bytes received '+get_file_size(tmp_fname)+' <> '+num_bytes_received});
+						remove_file(tmp_fname);
+						return;
+					}
+					compute_file_checksum(tmp_fname,function(computed_checksum) {
+						if (computed_checksum!=checksum) {
+							send_json_response({success:false,error:'Unexpected checksum '+computed_checksum+' <> '+checksum});
+							remove_file(tmp_fname);
+							return;
+						}
+						if (!rename_file(tmp_fname,new_fname)) {
+							send_json_response({success:false,error:'Unable to rename file '+tmp_fname+' '+new_fname});
+							remove_file(tmp_fname);
+							return;
+						}
+						send_json_response({success:true,message:'received '+num_bytes_received+' bytes'});
+					});
+				});
+			}
+		}
+		else {
+			send_json_response({success:false,error:'invalid method: '+method});	
+		}
 	}
 	else {
 		send_text_response("Unsuported request method.");
@@ -321,6 +404,58 @@ function looks_like_it_could_be_a_url(txt) {
 	if (txt.indexOf('http://')==0) return true;
 	if (txt.indexOf('https://')==0) return true;
 	return false;
+}
+
+function is_valid_checksum(str) {
+	if (str.length!=40) return false;
+	return /^[a-zA-Z0-9]+$/.test(str);
+}
+
+function make_random_id(len)
+{
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    for( var i=0; i < len; i++ )
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    return text;
+}
+
+function remove_file(fname) {
+	try {
+		fs.unlinkSync(fname);
+		return true;
+	}
+	catch(err) {
+		return false;
+	}
+}
+
+function rename_file(fname,fname_new) {
+	try {
+		fs.renameSync(fname,fname_new);
+		return true;
+	}
+	catch(err) {
+		return false;
+	}	
+}
+
+function get_file_size(fname) {
+	try {
+		var s=fs.statSync(fname);
+		return s.size;
+	}
+	catch(err) {
+		return 0;
+	}
+}
+
+function compute_file_checksum(fname,callback) {
+	run_process_and_read_stdout(__dirname+'/../bin/prv',['sha1sum',fname],function(txt) {
+		callback(txt.trim());
+	});
 }
 
 function CLParams(argv) {
