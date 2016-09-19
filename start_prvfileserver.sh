@@ -7,7 +7,14 @@
 
 # To override the listen port, use --listen_port=8081
 
-abs_data_directory=${1-$PWD/data}
+abs_data_directory=$1
+
+if [ -z "$abs_data_directory" ];
+then
+  echo "You must specify the absolute data directory path as the first argument."
+  exit -1
+fi
+
 shift #consume the first argument -- pass the rest to prvfileserver.js
 
-sudo docker run --net="host" -v $PWD/prv.json:/base/prv.json -v $abs_data_directory:/base/data -t prv nodejs prvfileserver/prvfileserver.js "$@"
+sudo docker run --name=prv_container --net="host" -v $PWD/prv.json:/base/prv.json -v $abs_data_directory:/base/data -t prv nodejs prvfileserver/prvfileserver.js "$@"

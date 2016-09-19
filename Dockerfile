@@ -21,8 +21,8 @@ RUN npm install ini extend
 
 # Make the user
 RUN mkdir /home/prvuser
-RUN groupadd -r prvuser -g 433 && \
-useradd -u 431 -r -g prvuser -d /home/prvuser -s /sbin/nologin -c "Docker image user" prvuser && \
+RUN groupadd -r prvuser && \
+useradd -r -g prvuser -d /home/prvuser -s /sbin/nologin -c "Docker image user" prvuser && \
 chown -R prvuser:prvuser /home/prvuser
 RUN apt-get install nano
 
