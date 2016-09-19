@@ -17,4 +17,16 @@ fi
 
 shift #consume the first argument -- pass the rest to prvfileserver.js
 
-sudo docker run --name=prv_container --net="host" -v $PWD/prv.json:/base/prv.json -v $abs_data_directory:/base/data -t prv nodejs prvfileserver/prvfileserver.js "$@"
+sudo docker kill prv_container
+sudo docker rm prv_container
+
+cmd="nodejs prvfileserver/prvfileserver.js"
+
+args="--name=prv_container --net=host -v $abs_data_directory:/base/data"
+if [ -f "$PWD/prv.json" ];
+then
+  args="$args -v $PWD/prv.json:/base/prv.json"
+fi
+
+echo sudo docker run $args -t prv $cmd "$@"
+sudo docker run $args -t prv $cmd "$@"
