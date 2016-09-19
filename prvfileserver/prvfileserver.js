@@ -166,8 +166,14 @@ http.createServer(function (REQ, RESP) {
 					return;
 				});
 				var num_bytes_received=0;
+				var timer0=new Date();
 				REQ.on('data',function(chunk) {
 					if (!ok) return;
+					var elapsed0=(new Date())-timer0;
+					if (elapsed0>5000) {
+						console.log ('Received '+num_bytes_received+' of '+size+' bytes. '+(num_bytes_received/size)+'%...');
+						timer0=new Date();
+					}
 					num_bytes_received+=chunk.length;
 					if (num_bytes_received>size) {
 						send_json_response({success:false,error:'Received more bytes than expected. '+num_bytes_received+'>'+size});
@@ -181,6 +187,7 @@ http.createServer(function (REQ, RESP) {
 				var ended=false;
 				REQ.on('end',function() {
 					if (!ok) return;
+					console.log ('End of request.');
 					ended=true;
 					if (num_bytes_received!=size) {
 						send_json_response({success:false,error:'Unexpected num bytes received '+num_bytes_received+' <> '+size});
@@ -197,6 +204,7 @@ http.createServer(function (REQ, RESP) {
 					return;
 				});
 				write_stream.on('finish',function() {
+					console.log ('Write stream has finished.');
 					if (get_file_size(tmp_fname)!=num_bytes_received) {
 						send_json_response({success:false,error:'Unexpected size compared with num bytes received '+get_file_size(tmp_fname)+' <> '+num_bytes_received});
 						remove_file(tmp_fname);
