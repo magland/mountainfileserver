@@ -14,6 +14,7 @@
 #include <QProcess>
 #include <QUrl>
 #include <QStandardPaths>
+#include <QHostInfo>
 
 #define PRV_VERSION 0.1
 
@@ -524,7 +525,10 @@ QString http_post_file_curl_0(const QString& url,const QString &filename) {
     }
 
     QString tmp_out_fname="tmp.curl."+make_random_id(5)+".txt";
-    QString cmd = QString("curl --verbose --progress-bar -i -X POST \"%1\" -H \"Content-Type: application/octet-stream\" --data-binary @%2 -o %3").arg(url).arg(filename).arg(tmp_out_fname);
+    QString cmd = QString("curl --verbose --progress-bar -i -X POST \"$$URL$$\" -H \"Content-Type: application/octet-stream\" --data-binary @%1 -o %2").arg(filename).arg(tmp_out_fname);
+    //we need to do it this way be url will likely have %1, etc in it
+    cmd=cmd.replace("$$URL$$",url);
+    println("cmd="+cmd);
     QProcess::execute(cmd);
     QString ret=read_text_file(tmp_out_fname);
     QFile::remove(tmp_out_fname);
@@ -714,11 +718,16 @@ int main_upload(QString src_path,QString server_url,const QVariantMap &params) {
     long size0=QFileInfo(src_path).size();
     QString url=server_url+"?a=upload"+"&checksum="+sumit(src_path)+"&size="+QString::number(size0);
     QJsonObject info;
-    info["src_path"]=src_path;
+    info["src_path"]=QDir::current().absoluteFilePath(src_path);
     info["server_url"]=server_url;
     info["user"]=get_user_name();
+    info["local_host_name"]=QHostInfo::localHostName();
+    info["date_uploaded"]=QDateTime::currentDateTime().toString("yyyy-MM-dd:hh-mm-ss");
+    info["params"]=QJsonObject::fromVariantMap(params);
     QString info_json=QJsonDocument(info).toJson();
     url+="&info="+QUrl::toPercentEncoding(info_json.toUtf8());
+    println("url="+url);
+
     QString ret=http_post_file_curl_0(url,src_path);
     if (ret.isEmpty()) {
         qWarning() << "Problem posting file to: "+url;

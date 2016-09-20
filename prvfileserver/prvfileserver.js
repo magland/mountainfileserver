@@ -44,7 +44,9 @@ http.createServer(function (REQ, RESP) {
 	var url_parts = url.parse(REQ.url,true);
 	var path=url_parts.pathname;
 	var query=url_parts.query;
+	console.log(query);
 	var method=query.a||'download';	
+	var info=query.info||'{}';
 
 	if (REQ.method == 'OPTIONS') {
 		var headers = {};
@@ -228,6 +230,7 @@ http.createServer(function (REQ, RESP) {
 							remove_file(tmp_fname);
 							return;
 						}
+						fs.writeFileSync(new_fname+'.info',info,'utf8');
 						send_json_response({success:true,message:'received '+num_bytes_received+' bytes'});
 					});
 				});

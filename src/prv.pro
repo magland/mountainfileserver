@@ -1,5 +1,6 @@
 QT += core
 QT -= gui
+QT += network # for QHostInfo -- not that important
 CONFIG -= app_bundle #Please apple, don't make a bundle
 CONFIG += c++11
 
