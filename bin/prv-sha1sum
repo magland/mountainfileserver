@@ -1,2 +1,2 @@
 #!/bin/bash
-prv sha1sum $@
+prv sha1sum "\$@"

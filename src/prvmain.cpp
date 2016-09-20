@@ -16,6 +16,7 @@
 #define PRV_VERSION 0.1
 
 void usage() {
+    printf("Usage:\n");
     printf("prv sha1sum [file_name]\n");
     printf("prv stat [file_name]\n");
     printf("prv create [src_file_name|folder_name] [dst_name.prv (optional)] [--create-temporary-files]\n");
@@ -24,7 +25,7 @@ void usage() {
     printf("prv download --checksum=[] --checksum1000=[optional] --size=[]\n");
     printf("prv recover [src_file_name.prv] [dst_file_name|folder_name (optional)] \n");
     printf("prv list-subservers\n");
-    printf("prv upload [src_file_name] [prvfileserver url]\n");
+    printf("prv upload [src_file_name] [server name or url]\n");
 }
 
 int main_sha1sum(QString path,const QVariantMap &params);
