@@ -55,3 +55,46 @@ Note that prv.json is copied at run time (start_prvfileserver.sh), whereas prv.j
 To stop the web server just use
 
 > ./stop_prvfileserver.sh
+
+## Compiling the prv command-line tool
+
+First install Qt5. If you are on Ubuntu, you can look at the Dockerfile to see how this is done. Just run all the apt-get commands in the section labeled "Install qt5". Then compilation is straightforward.
+
+> cd src
+
+> qmake
+
+> make
+
+This will create the executable file "bin/prv". Add the bin directory to your PATH environment variable. For example at the end of ~/.bashrc.
+
+> export PATH=~/prv/bin:$PATH
+
+Replacing ~/prv by wherever you cloned the repository. Restart the terminal.
+
+Now the command-line prv should be installed
+
+> prv
+
+## Using the prv command-line tool
+
+Try this:
+
+> prv upload [file_name] localhost
+
+> prv locate [file_name]
+
+> prv create [file_name] test.prv
+
+> prv restore test.prv test2.file
+
+Now, test2.file should have the same content as [file_name]
+
+The significance is that if you send somebody the .prv file, then they can restore it on their end. Of course they don't have access to your local machine. So you would need to replace localhost by, say, datalaboratory, which is is the name of a server that is publicly accessible.
+
+In general, prv may be configured (via prv.json) to point to other servers (for example your own that you have set up).
+
+
+
+
+
