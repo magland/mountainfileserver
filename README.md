@@ -24,10 +24,6 @@ Then you can run the server in the container using:
 
 > ./start_prvfileserver.sh /absolute/path/to/data/directory
 
-> sudo docker ps (to find its name)
-
-> sudo docker kill [its name]
-
 ## Testing the installation
 
 First create a file inside your data directory called, say, hello_world.txt
