@@ -1,2 +1,2 @@
 #!/bin/bash
-prv list-subservers "\$@"
+prv list-subservers "$@"
