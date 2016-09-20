@@ -84,13 +84,15 @@ Try this:
 
 > prv-create [file_name] test.prv
 
-> prv-restore test.prv test2.file
+> prv-recover test.prv test2.file
 
 Now, test2.file should have the same content as [file_name]
 
+> diff test2.file [file_name]
+
 The significance is that if you send somebody the .prv file, then they can restore it on their end. Of course they don't have access to your local machine. So you would need to replace localhost by, say, datalaboratory, which is the name of a server that is publicly accessible.
 
-In general, prv may be configured (via prv.json) to point to other servers (for example your own that you have set up).
+In general, prv may be configured (via prv.json) to point to other servers (for example your own that you have set up with the docker procedure above).
 
 
 
