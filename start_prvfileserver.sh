@@ -2,10 +2,12 @@
 
 # Before running this command, set up the web server using the instructions in the README.md
 
-# Pass the absolute data directory path in as the first argument. By default it is $PWD/data.
-# This then gets mapped to the /base/data directory of the container, so you should NOT change data_directory in the prv.json
+# Pass the absolute data directory path in as the first argument.
 
-# To override the listen port, use --listen_port=8081
+# Edit the configuration in prv.json. You can start by copying prv.json.default to prv.json.
+
+# This script may seem crazy, but it is necessary to do this to achieve that the user
+# inside the container matches exactly the current user (including uid!)
 
 abs_data_directory=$1
 
@@ -17,16 +19,23 @@ fi
 
 shift #consume the first argument -- pass the rest to prvfileserver.js
 
-sudo docker kill prv_container
-sudo docker rm prv_container
+# Remove any previously running containing with this name
+docker kill prv_container
+docker rm prv_container
 
-cmd="nodejs prvfileserver/prvfileserver.js"
+# This is the command we will execute in the container
+cmd="nodejs /prv/prvfileserver/prvfileserver.js $abs_data_directory"
 
-args="--name=prv_container --net=host -v $abs_data_directory:/base/data"
+# We need to map the directory where the data are
+args="--name=prv_container --net=host -v $abs_data_directory:$abs_data_directory"
 if [ -f "$PWD/prv.json" ];
 then
+  # if it exists, map the prv.json file. Note that the prv.json.file is copied over during build
   args="$args -v $PWD/prv.json:/base/prv.json"
 fi
 
-echo sudo docker run $args -t prv $cmd "$@"
-sudo docker run $args -t prv $cmd "$@"
+# Here's the crazy-ish but necessary way to do it
+args="$args -t prv /bin/bash -c \"useradd -u $UID $USER;su - $USER -c '$cmd'\""
+
+echo sudo docker run $args $@
+/bin/bash -c "sudo docker run $args $@"

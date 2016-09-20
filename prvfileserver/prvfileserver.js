@@ -8,6 +8,13 @@ var fs=require('fs');
 //use > npm install extend
 var extend=require('extend');
 
+CLP=new CLParams(process.argv);
+var data_directory=CLP.unnamedParameters[0]||'';
+if (!data_directory) {
+	console.log ('First argument must be the data directory.');
+	process.exit(-1);
+}
+
 var config=JSON.parse(fs.readFileSync(__dirname+'/../prv.json.default','utf8'));
 try {
 	var config_user=JSON.parse(fs.readFileSync(__dirname+'/../prv.json','utf8'));
@@ -16,8 +23,6 @@ try {
 catch(err) {
 }
 config=config.prvfileserver||{};
-
-CLP=new CLParams(process.argv);
 
 config.listen_port=CLP.namedParameters['listen_port']||config.listen_port;
 
@@ -149,8 +154,8 @@ http.createServer(function (REQ, RESP) {
 				send_json_response({error:true,error:"Invalid checksum."});
 				return;
 			}
-			mkdir_if_needed(config.data_directory+'/uploads');
-			var new_fname=config.data_directory+'/uploads/'+checksum;
+			mkdir_if_needed(absolute_data_directory()+'/uploads');
+			var new_fname=absolute_data_directory()+'/uploads/'+checksum;
 			var tmp_fname=new_fname+'.'+make_random_id(5)+'.upload.tmp';
 			{
 				var write_stream;
@@ -326,7 +331,7 @@ http.createServer(function (REQ, RESP) {
 	}
 
 	function absolute_data_directory() {
-		var ret=config.data_directory;
+		var ret=data_directory;
 		if (ret.indexOf('/')===0) return ret;
 		return __dirname+'/../'+ret;
 	}

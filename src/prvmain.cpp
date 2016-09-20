@@ -507,7 +507,6 @@ QString http_get_text_curl_0(const QString& url)
     P.waitForFinished(-1);
     int exit_code = P.exitCode();
     if (exit_code != 0) {
-        qWarning() << "Problem with system call: " + cmd;
         //QFile::remove(tmp_fname);
         return "";
     }
@@ -520,10 +519,18 @@ QString http_post_file_curl_0(const QString& url,const QString &filename) {
         qWarning() << "Problem in http post. It appears that curl is not installed.";
         return "";
     }
-    QString cmd = QString("curl --verbose --progress-bar -i -X POST \"%1\" -H \"Content-Type: application/octet-stream\" --data-binary @%2 -o tmp.txt").arg(url).arg(filename);
 
+    QString tmp_out_fname="tmp.curl."+make_random_id(5)+".txt";
+    QString cmd = QString("curl --verbose --progress-bar -i -X POST \"%1\" -H \"Content-Type: application/octet-stream\" --data-binary @%2 -o %3").arg(url).arg(filename).arg(tmp_out_fname);
     QProcess::execute(cmd);
-    return "";
+    QString ret=read_text_file(tmp_out_fname);
+    QFile::remove(tmp_out_fname);
+
+    //the following is a hack to get the body of the response data
+    int ind=ret.indexOf("{");
+    if (ind>=0) ret=ret.mid(ind);
+
+    return ret;
 
     /*
 
@@ -533,7 +540,6 @@ QString http_post_file_curl_0(const QString& url,const QString &filename) {
     P.waitForFinished(-1);
     int exit_code = P.exitCode();
     if (exit_code != 0) {
-        qWarning() << "Problem with system call: " + cmd;
         //QFile::remove(tmp_fname);
         return "";
     }
@@ -707,7 +713,6 @@ int main_upload(QString src_path,QString server_url,const QVariantMap &params) {
     QJsonParseError err0;
     QJsonObject obj=QJsonDocument::fromJson(ret.toUtf8(),&err0).object();
     if (err0.error!=QJsonParseError::NoError) {
-        qDebug() << ret;
         println(QString("Error uploading file."));
         return -1;
     }

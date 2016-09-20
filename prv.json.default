@@ -3,14 +3,14 @@
 		"temporary_path":"/tmp",
 		"local_search_paths":[],
 		"servers":[
-			{"name":"datalaboratory","host":"http://datalaboratory.org","port":8080,"path":"/prv"}
+			{"name":"datalaboratory","host":"http://datalaboratory.org","port":8080,"path":"/prv"},
+			{"name":"localhost","host":"http://localhost","port":8080,"path":"/prv"}
 		]
 	},
 	"prvfileserver":{
 		"listen_port":"8080",
 		"url_path":"/prv",
 		"enable_uploads":false,
-		"data_directory":"data",
 		"subservers":[
 			{"host":"","port":0,"path":""}
 		]
