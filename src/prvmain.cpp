@@ -372,6 +372,7 @@ int main_list_subservers(const QVariantMap &params) {
         int port=server0["port"].toInt();
         QString url_path=server0["path"].toString();
         QString url0=host+":"+QString::number(port)+url_path+QString("/?a=list-subservers");
+        url0+="&passcode="+server0["passcode"].toString();
         println("Connecting to "+url0);
         QString txt=http_get_text_curl_0(url0);
         print(txt+"\n\n");
@@ -575,6 +576,7 @@ QString find_remote_file(long size,const QString &checksum, const QString &check
         int port=server0["port"].toInt();
         QString url_path=server0["path"].toString();
         QString url0=host+":"+QString::number(port)+url_path+QString("/?a=locate&checksum=%1&checksum1000=%2&size=%3").arg(checksum).arg(checksum1000_optional).arg(size);
+        url0+="&passcode="+server0["passcode"].toString();
         QString txt=http_get_text_curl_0(url0);
         if (!txt.isEmpty()) {
             if (!txt.contains(" ")) { //filter out error messages (good idea, or not?)

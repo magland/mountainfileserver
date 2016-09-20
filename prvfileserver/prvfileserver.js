@@ -64,6 +64,14 @@ http.createServer(function (REQ, RESP) {
 	}
 	else if (REQ.method=='GET') {
 		console.log ('GET: '+REQ.url);
+		{
+			if (config.passcode) {
+				if (query.passcode!=config.passcode) {
+					send_json_response({success:false,error:'Incorrect passcode'});
+					return;
+				}
+			}
+		}
 		if (config.url_path) {
 			if (path.indexOf(config.url_path)!==0) {
 				send_json_response({success:false,error:'Unexpected path: '+path});
