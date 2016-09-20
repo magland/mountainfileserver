@@ -28,7 +28,7 @@ void usage() {
     printf("prv download --checksum=[] --checksum1000=[optional] --size=[]\n");
     printf("prv recover [src_file_name.prv] [dst_file_name|folder_name (optional)] \n");
     printf("prv list-subservers\n");
-    printf("prv upload [src_file_name] [server name or url]\n");
+    printf("prv upload [file or folder name] [server name or url] --[custom_key]=[custom value] ...\n");
 }
 
 int main_sha1sum(QString path,const QVariantMap &params);
@@ -525,10 +525,9 @@ QString http_post_file_curl_0(const QString& url,const QString &filename) {
     }
 
     QString tmp_out_fname="tmp.curl."+make_random_id(5)+".txt";
-    QString cmd = QString("curl --verbose --progress-bar -i -X POST \"$$URL$$\" -H \"Content-Type: application/octet-stream\" --data-binary @%1 -o %2").arg(filename).arg(tmp_out_fname);
+    QString cmd = QString("curl --progress-bar -X POST \"$$URL$$\" -H \"Content-Type: application/octet-stream\" --data-binary @%1 -o %2").arg(filename).arg(tmp_out_fname);
     //we need to do it this way be url will likely have %1, etc in it
     cmd=cmd.replace("$$URL$$",url);
-    println("cmd="+cmd);
     QProcess::execute(cmd);
     QString ret=read_text_file(tmp_out_fname);
     QFile::remove(tmp_out_fname);
@@ -713,10 +712,35 @@ QString get_user_name() {
     return home_path.first().split(QDir::separator()).last();
 }
 
+static long s_total_uploaded_bytes=0;
+
 int main_upload(QString src_path,QString server_url,const QVariantMap &params) {
-    Q_UNUSED(params)
+
+    if (QFileInfo(src_path).isDir()) {
+        QStringList flist=QDir(src_path).entryList(QStringList("*"),QDir::Files,QDir::Name);
+        foreach (QString f,flist) {
+            int ret=main_upload(src_path+"/"+f,server_url,params);
+            if (ret!=0) return ret;
+        }
+        QStringList dlist=QDir(src_path).entryList(QStringList("*"),QDir::Dirs|QDir::NoDotAndDotDot,QDir::Name);
+        foreach (QString d,dlist) {
+            int ret=main_upload(src_path+"/"+d,server_url,params);
+            if (ret!=0) return ret;
+        }
+        return 0;
+    }
+
     long size0=QFileInfo(src_path).size();
-    QString url=server_url+"?a=upload"+"&checksum="+sumit(src_path)+"&size="+QString::number(size0);
+    if (size0==0) {
+        println("File is empty... skipping: "+src_path);
+        return 0;
+    }
+    QString checksum00=sumit(src_path);
+    if (checksum00.isEmpty()) {
+        println("checksum is empty for file: "+src_path);
+        return -1;
+    }
+    QString url=server_url+"?a=upload"+"&checksum="+checksum00+"&size="+QString::number(size0);
     QJsonObject info;
     info["src_path"]=QDir::current().absoluteFilePath(src_path);
     info["server_url"]=server_url;
@@ -726,7 +750,6 @@ int main_upload(QString src_path,QString server_url,const QVariantMap &params) {
     info["params"]=QJsonObject::fromVariantMap(params);
     QString info_json=QJsonDocument(info).toJson();
     url+="&info="+QUrl::toPercentEncoding(info_json.toUtf8());
-    println("url="+url);
 
     QString ret=http_post_file_curl_0(url,src_path);
     if (ret.isEmpty()) {
@@ -744,7 +767,8 @@ int main_upload(QString src_path,QString server_url,const QVariantMap &params) {
         println(QString("Error uploading file: %1").arg(error));
         return -1;
     }
-    println(QString("Uploaded file (%1 MB).").arg(size0*1.0/1e6));
+    s_total_uploaded_bytes+=size0;
+    println(QString("Uploaded file %1 (%2 MB, total %3 MB).").arg(src_path).arg(size0*1.0/1e6).arg(s_total_uploaded_bytes*1.0/1e6));
     return 0;
 }
 
