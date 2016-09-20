@@ -20,14 +20,14 @@ fi
 shift #consume the first argument -- pass the rest to prvfileserver.js
 
 # Remove any previously running containing with this name
-docker kill prv_container
-docker rm prv_container
+sudo docker kill prv_container
+sudo docker rm prv_container
 
 # This is the command we will execute in the container
 cmd="nodejs /prv/prvfileserver/prvfileserver.js $abs_data_directory"
 
 # We need to map the directory where the data are
-args="--name=prv_container --net=host -v $abs_data_directory:$abs_data_directory"
+args="--name=prv_container --net=host --pid=host -v $abs_data_directory:$abs_data_directory"
 if [ -f "$PWD/prv.json" ];
 then
   # if it exists, map the prv.json file. Note that the prv.json.file is copied over during build
