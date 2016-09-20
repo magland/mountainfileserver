@@ -30,7 +30,7 @@ First create a file inside your data directory called, say, hello_world.txt
 
 Open a web browser and point it to
 
-> http://localhost:8080/prv/[]
+> http://localhost:8080/prv/hello_world.txt
 
 > http://localhost:8080/prv/hello_world.txt?a=stat
 
