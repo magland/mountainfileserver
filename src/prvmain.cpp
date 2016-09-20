@@ -12,6 +12,8 @@
 #include <QJsonArray>
 #include <QSettings>
 #include <QProcess>
+#include <QUrl>
+#include <QStandardPaths>
 
 #define PRV_VERSION 0.1
 
@@ -702,10 +704,21 @@ int main_recover_folder_prv(const QJsonObject &obj,QString dst_path,const QVaria
     return 0;
 }
 
+QString get_user_name() {
+    QStringList home_path = QStandardPaths::standardLocations(QStandardPaths::HomeLocation);
+    return home_path.first().split(QDir::separator()).last();
+}
+
 int main_upload(QString src_path,QString server_url,const QVariantMap &params) {
     Q_UNUSED(params)
     long size0=QFileInfo(src_path).size();
     QString url=server_url+"?a=upload"+"&checksum="+sumit(src_path)+"&size="+QString::number(size0);
+    QJsonObject info;
+    info["src_path"]=src_path;
+    info["server_url"]=server_url;
+    info["user"]=get_user_name();
+    QString info_json=QJsonDocument(info).toJson();
+    url+="&info="+QUrl::toPercentEncoding(info_json.toUtf8());
     QString ret=http_post_file_curl_0(url,src_path);
     if (ret.isEmpty()) {
         qWarning() << "Problem posting file to: "+url;
