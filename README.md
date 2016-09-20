@@ -22,11 +22,13 @@ Create a directory where the data will be stored. Or use an existing directory.
 
 Then you can run the server in the container using:
 
-> ./start_prvfileserver.sh /absolute/path/to/data/directory
+> ./start_prvfileserver.sh /data/directory (use the absolute path)
 
 ## Testing the installation
 
 First create a file inside your data directory called, say, hello_world.txt
+
+> echo "Hello, world! - from prv." > /data/directory/hello_world.txt
 
 Open a web browser and point it to
 
