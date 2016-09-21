@@ -249,7 +249,7 @@ int main_stat(QString path,const QVariantMap &params) {
 }
 
 int main_create_file_prv(QString src_path,QString dst_path,const QVariantMap &params) {
-    println("making file prv: "+src_path);
+    println("making prv file: "+dst_path);
     PrvFile PF;
     PrvFileCreateOptions opts;
     opts.create_temporary_files=params.contains("create-temporary-files");

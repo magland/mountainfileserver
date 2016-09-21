@@ -17,7 +17,6 @@ SOURCES += prvmain.cpp \
 INCLUDEPATH += util
 VPATH += util
 HEADERS += sumit.h clparams.h \
-    prv.h \
     prvfile.h \
     cachemanager.h
 SOURCES += sumit.cpp clparams.cpp
