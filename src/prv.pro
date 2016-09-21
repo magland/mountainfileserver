@@ -10,9 +10,14 @@ MOC_DIR=../build
 TARGET = prv
 TEMPLATE = app
 
-SOURCES += prvmain.cpp
+SOURCES += prvmain.cpp \
+    prvfile.cpp \
+    cachemanager.cpp
 
 INCLUDEPATH += util
 VPATH += util
-HEADERS += sumit.h clparams.h
+HEADERS += sumit.h clparams.h \
+    prv.h \
+    prvfile.h \
+    cachemanager.h
 SOURCES += sumit.cpp clparams.cpp

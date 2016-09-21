@@ -3,8 +3,8 @@
 		"temporary_path":"/tmp",
 		"local_search_paths":[],
 		"servers":[
-			{"name":"datalaboratory",passcode:"","host":"http://datalaboratory.org","port":8080,"path":"/prv"},
-			{"name":"localhost",passcode:"","host":"http://localhost","port":8080,"path":"/prv"}
+			{"name":"datalaboratory","passcode":"","host":"http://datalaboratory.org","port":8080,"path":"/prv"},
+			{"name":"localhost","passcode":"","host":"http://localhost","port":8080,"path":"/prv"}
 		]
 	},
 	"prvfileserver":{

@@ -128,7 +128,11 @@ http.createServer(function (REQ, RESP) {
 			}
 			run_process_and_read_stdout(__dirname+'/../bin/prv',['locate','--path='+absolute_data_directory(),'--checksum='+query.checksum,'--size='+query.size,'--checksum1000='+(query.checksum1000||'')],function(txt) {
 				txt=txt.trim();
-				if (!txt) {
+				if (txt) {
+					if (config.passcode)
+						txt=txt+'?passcode='+config.passcode;
+				}
+				else {
 					find_in_subserver({checksum:query.checksum,size:query.size,checksum1000:(query.checksum1000||'')});
 					return;
 				}
